@@ -6,11 +6,11 @@
     let cnt = 0;
 
     function raf() {
-        if (cnt < 24)
+        if (cnt < 23)
             window.requestAnimationFrame(raf);
         else {
             console.log("generating mips");
-            for(let c = 0; c < 24; c++) {
+            for(let c = 0; c < 23; c++) {
                 gl.bindTexture(gl.TEXTURE_2D, textures[c]);
                 gl.generateMipmap(gl.TEXTURE_2D);
                 gl.framebufferTexture2D(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textures[c], 2);
