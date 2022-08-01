@@ -101,8 +101,8 @@
 
 			function init() {
 
-				let buffer = new ArrayBuffer(1024*1024*1024);
-				for(let x = 0; x < 1024*1024*1024; x++) {
+				let buffer = new ArrayBuffer(333*1024*1024);
+				for(let x = 0; x < 333*1024*1024; x++) {
 					buffer[x] = [x];
 					if (x%1000 === 0)
 						console.log(x);
