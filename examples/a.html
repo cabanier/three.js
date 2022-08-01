@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<script>
+    let gl, fb;
+    let textures = [];
+    let cnt = 0;
+
+    function raf() {
+        window.requestAnimationFrame(raf);
+        const texture = gl.createTexture();
+        textures.push(texture);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 4096, 4096, 0, gl.RGBA, gl.UNSIGNED_BYTE, pano);
+        gl.generateMipmap(gl.TEXTURE_2D);
+        gl.framebufferTexture2D(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+        gl.blitFramebuffer(0, 0, 4096, 4096, 0, 0, 4096, 4096, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+        console.log(cnt);
+        cnt++;
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        pano.onload = () => {
+            gl = document.getElementById("gl").getContext('webgl2', { antialias: false });
+            fb = gl.createFramebuffer();
+            gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fb);
+
+            raf();
+        };
+    });
+</script>
+<body>
+    <canvas id="gl" width="4096" height="4096"></canvas>
+    <img id="pano" src="textures/chess-pano-4k.png" crossorigin="anonymous"/>
+</body>
+</html>
