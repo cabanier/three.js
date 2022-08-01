@@ -7,7 +7,7 @@
 
     function raf() {
         window.requestAnimationFrame(raf);
-        if (cnt < 23) {
+        if (cnt < 22) {
             const texture = gl.createTexture();
             textures.push(texture);
             gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -17,10 +17,10 @@
             console.log(cnt);
         } else {
             console.log("generating mips");
-            gl.bindTexture(gl.TEXTURE_2D, textures[cnt%23]);
+            gl.bindTexture(gl.TEXTURE_2D, textures[cnt%22]);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 4096, 4096, 0, gl.RGBA, gl.UNSIGNED_BYTE, pano);
             gl.generateMipmap(gl.TEXTURE_2D);
-            gl.framebufferTexture2D(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textures[cnt%23], 2);
+            gl.framebufferTexture2D(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textures[cnt%22], 2);
             gl.blitFramebuffer(0, 0, 1024, 1024, 0, 0, 4096, 4096, gl.COLOR_BUFFER_BIT, gl.NEAREST);
             console.log("done generating mips");
         }
