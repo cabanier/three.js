@@ -101,6 +101,14 @@
 
 			function init() {
 
+				let buffer = new ArrayBuffer(1024*1024*1024);
+				for(let x = 0; x < 1024*1024*1024; x++) {
+					buffer[x] = [x];
+					if (x%1000 === 0)
+						console.log(x);
+				}
+				console.log('done');
+
 				container = document.createElement( 'div' );
 				document.body.appendChild( container );
 
@@ -109,36 +117,40 @@
 
 				scene = new THREE.Scene();
 
-				loadCubeTextureWithMipmaps().then( function ( cubeTexture ) {
+				for (let x = 0; x < 10000; x++) {
 
-					//model
-					const sphere = new THREE.SphereGeometry( 100, 128, 128 );
+					loadCubeTextureWithMipmaps().then( function ( cubeTexture ) {
 
-					//manual mipmaps
-					let material = new THREE.MeshBasicMaterial( { color: 0xffffff, envMap: cubeTexture } );
-					material.name = 'manual mipmaps';
+						//model
+						const sphere = new THREE.SphereGeometry( 100, 128, 128 );
+/*
+						//manual mipmaps
+						let material = new THREE.MeshBasicMaterial( { color: 0xffffff, envMap: cubeTexture } );
+						material.name = 'manual mipmaps';
 
-					let mesh = new THREE.Mesh( sphere, material );
-					mesh.position.set( 100, 0, 0 );
-					scene.add( mesh );
+						let mesh = new THREE.Mesh( sphere, material );
+						mesh.position.set( 100, 0, 0 );
+						//scene.add( mesh );
+*/
 
+						//webgl mipmaps
+						material = material.clone();
+						material.name = 'auto mipmaps';
 
-					//webgl mipmaps
-					material = material.clone();
-					material.name = 'auto mipmaps';
+						const autoCubeTexture = cubeTexture.clone();
+						autoCubeTexture.mipmaps = [];
+						autoCubeTexture.generateMipmaps = true;
+						autoCubeTexture.needsUpdate = true;
 
-					const autoCubeTexture = cubeTexture.clone();
-					autoCubeTexture.mipmaps = [];
-					autoCubeTexture.generateMipmaps = true;
-					autoCubeTexture.needsUpdate = true;
+						material.envMap = autoCubeTexture;
 
-					material.envMap = autoCubeTexture;
+						mesh = new THREE.Mesh( sphere, material );
+						mesh.position.set( - 100, 0, 0 );
+						scene.add( mesh );
 
-					mesh = new THREE.Mesh( sphere, material );
-					mesh.position.set( - 100, 0, 0 );
-					scene.add( mesh );
+					} );
 
-				} );
+				}
 
 				//renderer
 				renderer = new THREE.WebGLRenderer( { antialias: true } );
