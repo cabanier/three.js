@@ -8,13 +8,22 @@ import { WebGLRenderTarget } from '../WebGLRenderTarget.js';
 import { WebXRController } from './WebXRController.js';
 import { DepthTexture } from '../../textures/DepthTexture.js';
 import {
+	AddEquation,
+	BackSide,
+	CustomBlending,
 	DepthFormat,
 	DepthStencilFormat,
+	FrontSide,
 	RGBAFormat,
 	UnsignedByteType,
 	UnsignedIntType,
 	UnsignedInt248Type,
+	ZeroFactor,
 } from '../../constants.js';
+import { CylinderGeometry } from '../../geometries/CylinderGeometry.js';
+import { PlaneGeometry } from '../../geometries/PlaneGeometry.js';
+import { MeshBasicMaterial } from '../../materials/MeshBasicMaterial.js';
+import { Mesh } from '../../objects/Mesh.js';
 
 class WebXRManager extends EventDispatcher {
 
@@ -71,6 +80,12 @@ class WebXRManager extends EventDispatcher {
 		this.enabled = false;
 
 		this.isPresenting = false;
+
+		// layers/nested render target support
+		let mainScene = null;
+		let layers = [];
+		let supportsLayers = false;
+		this.drawingLayer = false;
 
 		this.getController = function ( index ) {
 
@@ -175,6 +190,29 @@ class WebXRManager extends EventDispatcher {
 			session = null;
 			newRenderTarget = null;
 
+			// switch layers back to emulated
+			if ( supportsLayers === true ) {
+
+				for ( const layer of layers ) {
+
+					layer.renderTarget = new WebGLRenderTarget( layer.pixelwidth, layer.pixelheight,
+						{
+							format: RGBAFormat,
+							type: UnsignedByteType,
+							depthTexture: new DepthTexture( layer.pixelwidth, layer.pixelheight, UnsignedInt248Type, undefined, undefined, undefined, undefined, undefined, undefined, DepthStencilFormat ),
+							stencilBuffer: attributes.stencil,
+							encoding: renderer.outputEncoding,
+							samples: 4
+						} );
+
+					layer.plane.material = layer.material;
+					layer.material.map = layer.renderTarget.texture;
+					delete layer.xrlayer;
+
+				}
+
+			}
+
 			//
 
 			animation.stop();
@@ -268,6 +306,9 @@ class WebXRManager extends EventDispatcher {
 
 				}
 
+				customReferenceSpace = null;
+				referenceSpace = await session.requestReferenceSpace( referenceSpaceType );
+
 				if ( ( session.renderState.layers === undefined ) || ( renderer.capabilities.isWebGL2 === false ) ) {
 
 					const layerInit = {
@@ -295,6 +336,7 @@ class WebXRManager extends EventDispatcher {
 
 				} else {
 
+					supportsLayers = true;
 					let depthFormat = null;
 					let depthType = null;
 					let glDepthFormat = null;
@@ -316,8 +358,7 @@ class WebXRManager extends EventDispatcher {
 					glBinding = new XRWebGLBinding( session, gl );
 
 					glProjLayer = glBinding.createProjectionLayer( projectionlayerInit );
-
-					session.updateRenderState( { layers: [ glProjLayer ] } );
+					const layersArray = [ glProjLayer ];
 
 					newRenderTarget = new WebGLRenderTarget(
 						glProjLayer.textureWidth,
@@ -334,15 +375,52 @@ class WebXRManager extends EventDispatcher {
 					const renderTargetProperties = renderer.properties.get( newRenderTarget );
 					renderTargetProperties.__ignoreDepthValues = glProjLayer.ignoreDepthValues;
 
+					// switch layers to native
+					for ( const layer of layers ) {
+
+						layer.plane.material = new MeshBasicMaterial( { color: 0xffffff, side: layer.type === 'cylinder' ? BackSide : FrontSide } );
+						layer.plane.material.blending = CustomBlending;
+						layer.plane.material.blendEquation = AddEquation;
+					    layer.plane.material.blendSrc = ZeroFactor;
+						layer.plane.material.blendDst = ZeroFactor;
+
+						if ( layer.type === 'quad' ) {
+
+							layer.xrlayer = glBinding.createQuadLayer( {
+								transform: new XRRigidTransform( layer.translation, layer.quaternion ),
+								width: layer.width / 2,
+								height: layer.height / 2,
+								space: referenceSpace,
+								viewPixelWidth: layer.pixelwidth,
+								viewPixelHeight: layer.pixelheight
+							} );
+
+						} else {
+
+							layer.xrlayer = glBinding.createCylinderLayer( {
+								transform: new XRRigidTransform( layer.translation, layer.quaternion ),
+								radius: layer.radius,
+								centralAngle: layer.centralAngle,
+								aspectRatio: layer.aspectRatio,
+								space: referenceSpace,
+								viewPixelWidth: layer.pixelwidth,
+								viewPixelHeight: layer.pixelheight
+							} );
+
+						}
+
+						layersArray.unshift( layer.xrlayer );
+
+					}
+
+					session.updateRenderState( { layers: layersArray } );
+
 				}
 
 				newRenderTarget.isXRRenderTarget = true; // TODO Remove this when possible, see #23278
 
 				// Set foveation to maximum.
 				this.setFoveation( 1.0 );
-
-				customReferenceSpace = null;
-				referenceSpace = await session.requestReferenceSpace( referenceSpaceType );
 
 				animation.setContext( session );
 				animation.start();
@@ -609,11 +687,223 @@ class WebXRManager extends EventDispatcher {
 
 		};
 
+		this.setMainScene = function ( newMainScene ) {
+
+			mainScene = newMainScene;
+
+		};
+
+		this.createQuadLayer = function ( width, height, translation, quaternion, pixelwidth, pixelheight, rendercall ) {
+
+			const geometry = new PlaneGeometry( width, height );
+			const renderTarget = new WebGLRenderTarget( pixelwidth, pixelheight,
+				{
+					format: RGBAFormat,
+					type: UnsignedByteType,
+					depthTexture: new DepthTexture( pixelwidth, pixelheight, UnsignedInt248Type, undefined, undefined, undefined, undefined, undefined, undefined, DepthStencilFormat ),
+					stencilBuffer: attributes.stencil,
+					encoding: renderer.outputEncoding,
+					samples: attributes.antialias ? 4 : 1
+				} );
+
+			const material = new MeshBasicMaterial( { color: 0xffffff, side: FrontSide } );
+			material.map = renderTarget.texture;
+			const plane = new Mesh( geometry, material );
+			plane.position.copy( translation );
+			plane.quaternion.copy( quaternion );
+
+			const layer = {
+				type: 'quad',
+				width: width,
+				height: height,
+				translation: translation,
+				quaternion: quaternion,
+				pixelwidth: pixelwidth,
+				pixelheight: pixelheight,
+				plane: plane,
+				material: material,
+				rendercall: rendercall,
+				renderTarget: renderTarget };
+
+			layers.push( layer );
+
+			mainScene.add( plane );
+
+			if ( session !== null ) {
+
+				layer.plane.material = new MeshBasicMaterial( { color: 0xffffff, side: FrontSide } );
+				layer.plane.material.blending = CustomBlending;
+				layer.plane.material.blendEquation = AddEquation;
+				layer.plane.material.blendSrc = ZeroFactor;
+				layer.plane.material.blendDst = ZeroFactor;
+
+				layer.xrlayer = glBinding.createQuadLayer( {
+					transform: new XRRigidTransform( layer.translation, layer.quaternion ),
+					width: layer.width / 2,
+					height: layer.height / 2,
+					space: referenceSpace,
+					viewPixelWidth: layer.pixelwidth,
+					viewPixelHeight: layer.pixelheight
+				} );
+
+				const xrlayers = session.renderState.layers;
+				xrlayers.unshift( layer.xrlayer );
+				session.updateRenderState( { layers: xrlayers } );
+
+			}
+
+			return plane.uuid;
+
+		};
+
+		this.createCylinderLayer = function ( radius, centralAngle, aspectratio, translation, quaternion, pixelwidth, pixelheight, rendercall ) {
+
+			const geometry = new CylinderGeometry( radius, radius, radius * centralAngle / aspectratio, 64, 64, true, Math.PI - centralAngle / 2, centralAngle );
+			const renderTarget = new WebGLRenderTarget( pixelwidth, pixelheight,
+				{
+					format: RGBAFormat,
+					type: UnsignedByteType,
+					depthTexture: new DepthTexture( pixelwidth, pixelheight, UnsignedInt248Type, undefined, undefined, undefined, undefined, undefined, undefined, DepthStencilFormat ),
+					stencilBuffer: attributes.stencil,
+					encoding: renderer.outputEncoding,
+					samples: attributes.antialias ? 4 : 1
+				} );
+
+			const material = new MeshBasicMaterial( { color: 0xffffff, side: BackSide } );
+			material.map = renderTarget.texture;
+			const plane = new Mesh( geometry, material );
+			plane.position.copy( translation );
+			plane.quaternion.copy( quaternion );
+
+			const layer = {
+				type: 'cylinder',
+				radius: radius,
+				centralAngle: centralAngle,
+				aspectratio: aspectratio,
+				translation: translation,
+				quaternion: quaternion,
+				pixelwidth: pixelwidth,
+				pixelheight: pixelheight,
+				plane: plane,
+				material: material,
+				rendercall: rendercall,
+				renderTarget: renderTarget };
+
+			layers.push( layer );
+
+			mainScene.add( plane );
+
+			if ( session !== null ) {
+
+				layer.plane.material = new MeshBasicMaterial( { color: 0xffffff, side: BackSide } );
+				layer.plane.material.blending = CustomBlending;
+				layer.plane.material.blendEquation = AddEquation;
+				layer.plane.material.blendSrc = ZeroFactor;
+				layer.plane.material.blendDst = ZeroFactor;
+
+				layer.xrlayer = glBinding.createCylinderLayer( {
+					transform: new XRRigidTransform( layer.translation, layer.quaternion ),
+					radius: layer.radius,
+					centralAngle: layer.centralAngle,
+					aspectRatio: layer.aspectRatio,
+					space: referenceSpace,
+					viewPixelWidth: layer.pixelwidth,
+					viewPixelHeight: layer.pixelheight
+				} );
+
+				const xrlayers = session.renderState.layers;
+				xrlayers.unshift( layer.xrlayer );
+				session.updateRenderState( { layers: xrlayers } );
+
+			}
+
+			return plane.uuid;
+
+		};
+
+		this.removeLayer = function ( uuid ) {
+
+			const newlayers = [];
+
+			for ( const layer of layers ) {
+
+				if ( layer.plane.uuid === uuid ) {
+
+					mainScene.remove( layer.plane );
+
+					if ( layer.xrlayer !== undefined ) {
+
+						const xrlayers = session.renderState.layers;
+						const index = xrlayers.indexOf( layer.xrlayer );
+						session.updateRenderState( { layers: xrlayers.splice( index, 1 ) } );
+
+					}
+
+				} else {
+
+					newlayers.push( layer );
+
+				}
+
+			}
+
+			layers = newlayers;
+
+		};
+
 		// Animation Loop
 
 		let onAnimationFrameCallback = null;
 
+		this.on2DAnimationFrame = function ( time, frame ) {
+
+			if ( onAnimationFrameCallback ) onAnimationFrameCallback( time, frame );
+
+			for ( const layer of layers ) {
+
+				renderer.setRenderTarget( layer.renderTarget );
+				layer.rendercall();
+
+			}
+
+			renderer.setRenderTarget( null );
+
+		};
+
 		function onAnimationFrame( time, frame ) {
+
+			scope.drawingLayer = true;
+
+			if ( supportsLayers === true ) {
+
+				for ( const layer of layers ) {
+
+					const glSubImage = glBinding.getSubImage( layer.xrlayer, frame );
+					renderer.setRenderTargetTextures(
+						layer.renderTarget,
+						glSubImage.colorTexture,
+						undefined );
+
+					renderer.setRenderTarget( layer.renderTarget );
+					layer.rendercall();
+					renderer.setRenderTarget( null );
+
+				}
+
+			} else {
+
+				for ( const layer of layers ) {
+
+					renderer.setRenderTarget( layer.renderTarget );
+					layer.rendercall();
+
+				}
+
+				renderer.setRenderTarget( null );
+
+			}
+
+			scope.drawingLayer = false;
 
 			pose = frame.getViewerPose( customReferenceSpace || referenceSpace );
 			xrFrame = frame;

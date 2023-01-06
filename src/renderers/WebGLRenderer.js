@@ -962,7 +962,7 @@ function WebGLRenderer( parameters = {} ) {
 
 		if ( camera.parent === null && camera.matrixWorldAutoUpdate === true ) camera.updateMatrixWorld();
 
-		if ( xr.enabled === true && xr.isPresenting === true ) {
+		if ( xr.enabled === true && xr.isPresenting === true && xr.drawingLayer === false ) {
 
 			if ( xr.cameraAutoUpdate === true ) xr.updateCamera( camera );
 
