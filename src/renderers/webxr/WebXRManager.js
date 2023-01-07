@@ -693,6 +693,12 @@ class WebXRManager extends EventDispatcher {
 
 		};
 
+		this.hasXRLayers = function () {
+
+			return mainScene !== null;
+
+		};
+
 		this.createQuadLayer = function ( width, height, translation, quaternion, pixelwidth, pixelheight, rendercall ) {
 
 			const geometry = new PlaneGeometry( width, height );
@@ -700,7 +706,18 @@ class WebXRManager extends EventDispatcher {
 				{
 					format: RGBAFormat,
 					type: UnsignedByteType,
-					depthTexture: new DepthTexture( pixelwidth, pixelheight, UnsignedInt248Type, undefined, undefined, undefined, undefined, undefined, undefined, DepthStencilFormat ),
+					depthTexture: new DepthTexture(
+						pixelwidth,
+						pixelheight,
+						attributes.stencil ? UnsignedInt248Type : UnsignedIntType,
+						undefined,
+						undefined,
+						undefined,
+						undefined,
+						undefined,
+						undefined,
+						attributes.stencil ? DepthStencilFormat : DepthFormat
+					),
 					stencilBuffer: attributes.stencil,
 					encoding: renderer.outputEncoding,
 					samples: attributes.antialias ? 4 : 1
@@ -763,7 +780,18 @@ class WebXRManager extends EventDispatcher {
 				{
 					format: RGBAFormat,
 					type: UnsignedByteType,
-					depthTexture: new DepthTexture( pixelwidth, pixelheight, UnsignedInt248Type, undefined, undefined, undefined, undefined, undefined, undefined, DepthStencilFormat ),
+					depthTexture: new DepthTexture(
+						pixelwidth,
+						pixelheight,
+						attributes.stencil ? UnsignedInt248Type : UnsignedIntType,
+						undefined,
+						undefined,
+						undefined,
+						undefined,
+						undefined,
+						undefined,
+						attributes.stencil ? DepthStencilFormat : DepthFormat
+					),
 					stencilBuffer: attributes.stencil,
 					encoding: renderer.outputEncoding,
 					samples: attributes.antialias ? 4 : 1

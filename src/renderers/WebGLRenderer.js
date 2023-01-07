@@ -931,8 +931,17 @@ function WebGLRenderer( parameters = {} ) {
 
 	this.setAnimationLoop = function ( callback ) {
 
-		onAnimationFrameCallback = callback;
 		xr.setAnimationLoop( callback );
+
+		if ( xr.hasXRLayers() ) {
+
+			onAnimationFrameCallback = xr.on2DAnimationFrame;
+
+		} else {
+
+			onAnimationFrameCallback = callback;
+
+		}
 
 		( callback === null ) ? animation.stop() : animation.start();
 
