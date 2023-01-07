@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 	<head>
-		<title>three.js vr - ball shooter</title>
+		<title>three.js vr - xr layers</title>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 		<link type="text/css" rel="stylesheet" href="main.css">
@@ -91,7 +91,7 @@
 
 				};
 
-				} )();
+			} )();
 
 			let horseCamera = null;
 			let horseScene = null;
@@ -220,10 +220,10 @@
 				window.addEventListener( 'resize', onWindowResize );
 
 
-				renderer.xr.setMainScene(scene);
+				renderer.xr.setMainScene( scene );
 
 				// set up rollercoaster
-				renderer.xr.createCylinderLayer(1, Math.PI/2, 2 , new THREE.Vector3(0, 1.5, -0.5), new THREE.Quaternion(), 1024, 1024, renderCylinder);
+				renderer.xr.createCylinderLayer( 1, Math.PI / 2, 2, new THREE.Vector3( 0, 1.5, - 0.5 ), new THREE.Quaternion(), 1024, 1024, renderCylinder );
 
 				rcscene = new THREE.Scene();
 				rcscene.background = new THREE.Color( 0xf0f0ff );
@@ -327,7 +327,7 @@
 				funfairs.push( rcmesh );
 
 				// set up horse animation
-				renderer.xr.createQuadLayer(1, 1, new THREE.Vector3(-1.5, 1.5, -1.5), new THREE.Quaternion(), 1024, 1024, renderQuad);
+				renderer.xr.createQuadLayer( 1, 1, new THREE.Vector3( - 1.5, 1.5, - 1.5 ), new THREE.Quaternion(), 1024, 1024, renderQuad );
 
 				horseCamera = new THREE.PerspectiveCamera( 50, 1, 1, 10000 );
 				horseCamera.position.y = 300;
@@ -422,6 +422,7 @@
 				//
 
 				renderer.render( rcscene, rccamera );
+
 			}
 
 			function buildController( data ) {
