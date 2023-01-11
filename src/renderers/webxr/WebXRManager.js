@@ -1,6 +1,7 @@
 import { ArrayCamera } from '../../cameras/ArrayCamera.js';
 import { EventDispatcher } from '../../core/EventDispatcher.js';
 import { PerspectiveCamera } from '../../cameras/PerspectiveCamera.js';
+import { Quaternion } from '../../math/Quaternion.js';
 import { Vector3 } from '../../math/Vector3.js';
 import { Vector4 } from '../../math/Vector4.js';
 import { WebGLAnimation } from '../webgl/WebGLAnimation.js';
@@ -83,7 +84,7 @@ class WebXRManager extends EventDispatcher {
 
 		// layers/nested render target support
 		let mainScene = null;
-		let layers = [];
+		const layers = [];
 		let supportsLayers = false;
 		this.drawingLayer = false;
 
@@ -699,6 +700,9 @@ class WebXRManager extends EventDispatcher {
 
 		};
 
+		const _translationObject = new Vector3();
+		const _quaternionObject = new Quaternion();
+
 		this.createQuadLayer = function ( width, height, translation, quaternion, pixelwidth, pixelheight, rendercall ) {
 
 			const geometry = new PlaneGeometry( width, height );
@@ -744,7 +748,6 @@ class WebXRManager extends EventDispatcher {
 
 			layers.push( layer );
 
-			mainScene.add( plane );
 
 			if ( session !== null ) {
 
@@ -769,7 +772,7 @@ class WebXRManager extends EventDispatcher {
 
 			}
 
-			return plane.uuid;
+			return plane;
 
 		};
 
@@ -819,8 +822,6 @@ class WebXRManager extends EventDispatcher {
 
 			layers.push( layer );
 
-			mainScene.add( plane );
-
 			if ( session !== null ) {
 
 				layer.plane.material = new MeshBasicMaterial( { color: 0xffffff, side: BackSide } );
@@ -845,37 +846,7 @@ class WebXRManager extends EventDispatcher {
 
 			}
 
-			return plane.uuid;
-
-		};
-
-		this.removeLayer = function ( uuid ) {
-
-			const newlayers = [];
-
-			for ( const layer of layers ) {
-
-				if ( layer.plane.uuid === uuid ) {
-
-					mainScene.remove( layer.plane );
-
-					if ( layer.xrlayer !== undefined ) {
-
-						const xrlayers = session.renderState.layers;
-						const index = xrlayers.indexOf( layer.xrlayer );
-						session.updateRenderState( { layers: xrlayers.splice( index, 1 ) } );
-
-					}
-
-				} else {
-
-					newlayers.push( layer );
-
-				}
-
-			}
-
-			layers = newlayers;
+			return plane;
 
 		};
 
@@ -898,6 +869,24 @@ class WebXRManager extends EventDispatcher {
 
 		};
 
+		function isInMainScene( object ) {
+
+			if ( object == undefined ) {
+
+				return false;
+
+			}
+
+			if ( object == mainScene ) {
+
+				return true;
+
+			}
+
+			return isInMainScene( object.parent );
+
+		}
+
 		function onAnimationFrame( time, frame ) {
 
 			scope.drawingLayer = true;
@@ -906,15 +895,22 @@ class WebXRManager extends EventDispatcher {
 
 				for ( const layer of layers ) {
 
-					const glSubImage = glBinding.getSubImage( layer.xrlayer, frame );
-					renderer.setRenderTargetTextures(
-						layer.renderTarget,
-						glSubImage.colorTexture,
-						undefined );
+					if ( layer.plane.visible && isInMainScene( layer.plane ) ) {
 
-					renderer.setRenderTarget( layer.renderTarget );
-					layer.rendercall();
-					renderer.setRenderTarget( null );
+
+						layer.xrlayer.transform = new XRRigidTransform( layer.plane.getWorldPosition( _translationObject ), layer.plane.getWorldQuaternion( _quaternionObject ) );
+
+						const glSubImage = glBinding.getSubImage( layer.xrlayer, frame );
+						renderer.setRenderTargetTextures(
+							layer.renderTarget,
+							glSubImage.colorTexture,
+							undefined );
+
+						renderer.setRenderTarget( layer.renderTarget );
+						layer.rendercall();
+						renderer.setRenderTarget( null );
+
+					}
 
 				}
 

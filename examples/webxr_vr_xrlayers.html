@@ -33,6 +33,7 @@
 			import { VRButton } from 'three/addons/webxr/VRButton.js';
 			import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
 			import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+			import { InteractiveGroup } from 'three/addons/interactive/InteractiveGroup.js';
 			import {
 				RollerCoasterGeometry,
 				RollerCoasterShadowGeometry,
@@ -40,6 +41,8 @@
 				TreesGeometry,
 				SkyGeometry
 			} from 'three/addons/misc/RollerCoaster.js';
+			import { HTMLMesh } from 'three/addons/interactive/HTMLMesh.js';
+			import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
 			let camera, scene, renderer;
 			let controller1, controller2;
@@ -59,6 +62,10 @@
 			const PI2 = Math.PI * 2;
 			let rccamera = null;
 			let rcscene = null;
+
+			const tempMatrix = new THREE.Matrix4();
+			let raycaster = null;
+
 			const curve = ( function () {
 
 				const vector = new THREE.Vector3();
@@ -100,13 +107,44 @@
 			let horseMesh = null;
 			const horseRadius = 600;
 
+			let guiScene = null;
+			let guiCamera = null;
+			let guiGroup = null;
+
+			let rollercoasterLayer = null;
+			let horseLayer = null;
+			let guiLayer = null;
+
+			const parameters = {
+				radius: 0.6,
+				tube: 0.2,
+				tubularSegments: 150,
+				radialSegments: 20,
+				p: 2,
+				q: 3,
+				thickness: 0.5
+			};
+
 			init();
 			animate();
+
+			function getIntersections( controller ) {
+
+				tempMatrix.identity().extractRotation( controller.matrixWorld );
+
+				raycaster.ray.origin.setFromMatrixPosition( controller.matrixWorld );
+				raycaster.ray.direction.set( 0, 0, - 1 ).applyMatrix4( tempMatrix );
+
+				return raycaster.intersectObjects( scene.children, false );
+
+			}
 
 			function init() {
 
 				scene = new THREE.Scene();
 				scene.background = new THREE.Color( 0x505050 );
+
+				raycaster = new THREE.Raycaster();
 
 				camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.1, 10 );
 				camera.position.set( 0, 1.6, 3 );
@@ -158,21 +196,62 @@
 
 				// controllers
 
-				function onSelectStart() {
+				function onSqueezeStart( ) {
 
 					this.userData.isSelecting = true;
 
 				}
 
-				function onSelectEnd() {
+				function onSqueezeEnd() {
 
 					this.userData.isSelecting = false;
+
+				}
+
+				function onSelectStart( event ) {
+
+					const controller = event.target;
+
+					const intersections = getIntersections( controller );
+					for ( let x = 0; x < intersections.length; x ++ ) {
+
+						if ( intersections[ x ].object == horseLayer ) {
+
+							horseLayer.visible = false;
+
+						}
+
+						if ( intersections[ x ].object == rollercoasterLayer ) {
+
+							controller.attach( rollercoasterLayer );
+
+						}
+
+						if ( intersections[ x ].object == guiLayer ) {
+
+							const uv = intersections[ x ].uv;
+							guiGroup.children[ 0 ].dispatchEvent( { type: 'mousedown', data: { x: uv.x, y: 1 - uv.y }, target: guiGroup } );
+
+						}
+
+
+					}
+
+				}
+
+				function onSelectEnd( ) {
+
+					horseLayer.visible = true;
+					scene.attach( rollercoasterLayer );
+					guiGroup.children[ 0 ].dispatchEvent( { type: 'mouseup', data: { x: 0, y: 0 }, target: guiGroup } );
 
 				}
 
 				controller1 = renderer.xr.getController( 0 );
 				controller1.addEventListener( 'selectstart', onSelectStart );
 				controller1.addEventListener( 'selectend', onSelectEnd );
+				controller1.addEventListener( 'squeezestart', onSqueezeStart );
+				controller1.addEventListener( 'squeezeend', onSqueezeEnd );
 				controller1.addEventListener( 'connected', function ( event ) {
 
 					this.add( buildController( event.data ) );
@@ -188,6 +267,8 @@
 				controller2 = renderer.xr.getController( 1 );
 				controller2.addEventListener( 'selectstart', onSelectStart );
 				controller2.addEventListener( 'selectend', onSelectEnd );
+				controller2.addEventListener( 'squeezestart', onSqueezeStart );
+				controller2.addEventListener( 'squeezeend', onSqueezeEnd );
 				controller2.addEventListener( 'connected', function ( event ) {
 
 					this.add( buildController( event.data ) );
@@ -223,7 +304,8 @@
 				renderer.xr.setMainScene( scene );
 
 				// set up rollercoaster
-				renderer.xr.createCylinderLayer( 1, Math.PI / 2, 2, new THREE.Vector3( 0, 1.5, - 0.5 ), new THREE.Quaternion(), 1024, 1024, renderCylinder );
+				rollercoasterLayer = renderer.xr.createCylinderLayer( 1, Math.PI / 2, 2, new THREE.Vector3( 0, 1.5, - 0.5 ), new THREE.Quaternion(), 1024, 1024, renderCylinder );
+				scene.add( rollercoasterLayer );
 
 				rcscene = new THREE.Scene();
 				rcscene.background = new THREE.Color( 0xf0f0ff );
@@ -327,7 +409,10 @@
 				funfairs.push( rcmesh );
 
 				// set up horse animation
-				renderer.xr.createQuadLayer( 1, 1, new THREE.Vector3( - 1.5, 1.5, - 1.5 ), new THREE.Quaternion(), 1024, 1024, renderQuad );
+				horseLayer = renderer.xr.createQuadLayer( 1, 1, new THREE.Vector3( - 1.5, 1.5, - 1.5 ), new THREE.Quaternion(), 1024, 1024, renderQuad );
+				scene.add( horseLayer );
+
+				horseLayer.geometry = new THREE.CircleGeometry( .5, 64 );
 
 				horseCamera = new THREE.PerspectiveCamera( 50, 1, 1, 10000 );
 				horseCamera.position.y = 300;
@@ -357,6 +442,50 @@
 					horseMixer.clipAction( gltf.animations[ 0 ] ).setDuration( 1 ).play();
 
 				} );
+
+				function onChange() { }
+
+				function onThicknessChange() { }
+
+				// set up ui
+				guiScene = new THREE.Scene();
+				guiScene.background = new THREE.Color( 0x0 );
+
+				guiCamera = new THREE.OrthographicCamera( - 1, 1, 1, - 1, 0, 1 );
+				guiScene.add( guiCamera );
+
+				const gui = new GUI( { width: 300 } );
+				gui.add( parameters, 'radius', 0.0, 1.0 ).onChange( onChange );
+				gui.add( parameters, 'tube', 0.0, 1.0 ).onChange( onChange );
+				gui.add( parameters, 'tubularSegments', 10, 150, 1 ).onChange( onChange );
+				gui.add( parameters, 'radialSegments', 2, 20, 1 ).onChange( onChange );
+				gui.add( parameters, 'p', 1, 10, 1 ).onChange( onChange );
+				gui.add( parameters, 'q', 0, 10, 1 ).onChange( onChange );
+				gui.add( parameters, 'thickness', 0, 1 ).onChange( onThicknessChange );
+				gui.domElement.style.visibility = 'hidden';
+
+				guiGroup = new InteractiveGroup( renderer, guiCamera );
+				guiScene.add( guiGroup );
+
+				const mesh = new HTMLMesh( gui.domElement );
+				guiGroup.add( mesh );
+
+				const bbox = new THREE.Box3().setFromObject( guiScene );
+
+				guiLayer = renderer.xr.createQuadLayer( 1.2, .8, new THREE.Vector3( 1.5, 1.5, - 1.5 ), new THREE.Quaternion(), 1024, 1024, renderGui );
+				scene.add( guiLayer );
+
+				guiCamera.left = bbox.min.x;
+				guiCamera.right = bbox.max.x;
+				guiCamera.top = bbox.max.y;
+				guiCamera.bottom = bbox.min.y;
+				guiCamera.updateProjectionMatrix();
+
+			}
+
+			function renderGui() {
+
+				renderer.render( guiScene, guiCamera );
 
 			}
 
@@ -476,14 +605,27 @@
 
 				}
 
+				const intersections = getIntersections( controller );
+				for ( let x = 0; x < intersections.length; x ++ ) {
+
+					if ( intersections[ x ].object == guiLayer ) {
+
+						const uv = intersections[ x ].uv;
+						guiGroup.children[ 0 ].dispatchEvent( { type: 'mousemove', data: { x: uv.x, y: 1 - uv.y }, target: guiGroup } );
+
+					}
+
+
+				}
+
+
 			}
 
 			//
 
 			function animate() {
 
-				renderer.setAnimationLoop( render ); //renderer.xr.on2DAnimationFrame );
-				//renderer.xr.setAnimationLoop( render );
+				renderer.setAnimationLoop( render );
 
 			}
 
@@ -491,6 +633,9 @@
 
 				handleController( controller1 );
 				handleController( controller2 );
+
+				// rotate horse
+				horseLayer.rotation.y -= 0.02;
 
 				//
 				const delta = clock.getDelta() * 0.8;
