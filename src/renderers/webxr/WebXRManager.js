@@ -382,7 +382,7 @@ class WebXRManager extends EventDispatcher {
 						layer.plane.material = new MeshBasicMaterial( { color: 0xffffff, side: layer.type === 'cylinder' ? BackSide : FrontSide } );
 						layer.plane.material.blending = CustomBlending;
 						layer.plane.material.blendEquation = AddEquation;
-					    layer.plane.material.blendSrc = ZeroFactor;
+						layer.plane.material.blendSrc = ZeroFactor;
 						layer.plane.material.blendDst = ZeroFactor;
 
 						if ( layer.type === 'quad' ) {
