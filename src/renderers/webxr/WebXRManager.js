@@ -727,6 +727,7 @@ class WebXRManager extends EventDispatcher {
 					samples: attributes.antialias ? 4 : 1
 				} );
 
+			renderer.properties.get( renderTarget ).__ignoreDepthValues = true;
 			const material = new MeshBasicMaterial( { color: 0xffffff, side: FrontSide } );
 			material.map = renderTarget.texture;
 			const plane = new Mesh( geometry, material );
@@ -800,6 +801,7 @@ class WebXRManager extends EventDispatcher {
 					samples: attributes.antialias ? 4 : 1
 				} );
 
+			renderer.properties.get( renderTarget ).__ignoreDepthValues = true;
 			const material = new MeshBasicMaterial( { color: 0xffffff, side: BackSide } );
 			material.map = renderTarget.texture;
 			const plane = new Mesh( geometry, material );
