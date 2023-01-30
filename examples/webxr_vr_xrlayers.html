@@ -34,13 +34,6 @@
 			import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
 			import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 			import { InteractiveGroup } from 'three/addons/interactive/InteractiveGroup.js';
-			import {
-				RollerCoasterGeometry,
-				RollerCoasterShadowGeometry,
-				RollerCoasterLiftersGeometry,
-				TreesGeometry,
-				SkyGeometry
-			} from 'three/addons/misc/RollerCoaster.js';
 			import { HTMLMesh } from 'three/addons/interactive/HTMLMesh.js';
 			import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
@@ -303,111 +296,6 @@
 
 				renderer.xr.setMainScene( scene );
 
-				// set up rollercoaster
-				rollercoasterLayer = renderer.xr.createCylinderLayer( 1, Math.PI / 2, 2, new THREE.Vector3( 0, 1.5, - 0.5 ), new THREE.Quaternion(), 1024, 1024, renderCylinder );
-				scene.add( rollercoasterLayer );
-
-				rcscene = new THREE.Scene();
-				rcscene.background = new THREE.Color( 0xf0f0ff );
-
-				const rclight = new THREE.HemisphereLight( 0xfff0f0, 0x606066 );
-				rclight.position.set( 1, 1, 1 );
-				rcscene.add( rclight );
-
-				rcscene.add( train );
-
-				rccamera = new THREE.PerspectiveCamera( 50, 1, 0.1, 500 );
-				train.add( rccamera );
-
-				// environment
-
-				let rcgeometry = new THREE.PlaneGeometry( 500, 500, 15, 15 );
-				rcgeometry.rotateX( - Math.PI / 2 );
-
-				const positions = rcgeometry.attributes.position.array;
-				const vertex = new THREE.Vector3();
-
-				for ( let i = 0; i < positions.length; i += 3 ) {
-
-					vertex.fromArray( positions, i );
-
-					vertex.x += Math.random() * 10 - 5;
-					vertex.z += Math.random() * 10 - 5;
-
-					const distance = ( vertex.distanceTo( scene.position ) / 5 ) - 25;
-					vertex.y = Math.random() * Math.max( 0, distance );
-
-					vertex.toArray( positions, i );
-
-				}
-
-				rcgeometry.computeVertexNormals();
-
-				let rcmaterial = new THREE.MeshLambertMaterial( {
-					color: 0x407000
-				} );
-
-				let rcmesh = new THREE.Mesh( rcgeometry, rcmaterial );
-				rcscene.add( rcmesh );
-
-				rcgeometry = new TreesGeometry( rcmesh );
-				rcmaterial = new THREE.MeshBasicMaterial( {
-					side: THREE.DoubleSide, vertexColors: true
-				} );
-				rcmesh = new THREE.Mesh( rcgeometry, rcmaterial );
-				rcscene.add( rcmesh );
-
-				rcgeometry = new SkyGeometry();
-				rcmaterial = new THREE.MeshBasicMaterial( { color: 0xffffff } );
-				rcmesh = new THREE.Mesh( rcgeometry, rcmaterial );
-				rcscene.add( rcmesh );
-
-				//
-
-				rcgeometry = new RollerCoasterGeometry( curve, 1500 );
-				rcmaterial = new THREE.MeshPhongMaterial( {
-					vertexColors: true
-				} );
-				rcmesh = new THREE.Mesh( rcgeometry, rcmaterial );
-				rcscene.add( rcmesh );
-
-				rcgeometry = new RollerCoasterLiftersGeometry( curve, 100 );
-				rcmaterial = new THREE.MeshPhongMaterial();
-				rcmesh = new THREE.Mesh( rcgeometry, rcmaterial );
-				rcmesh.position.y = 0.1;
-				rcscene.add( rcmesh );
-
-				rcgeometry = new RollerCoasterShadowGeometry( curve, 500 );
-				rcmaterial = new THREE.MeshBasicMaterial( {
-					color: 0x305000, depthWrite: false, transparent: true
-				} );
-				rcmesh = new THREE.Mesh( rcgeometry, rcmaterial );
-				rcmesh.position.y = 0.1;
-				rcscene.add( rcmesh );
-
-				//
-
-				rcgeometry = new THREE.CylinderGeometry( 10, 10, 5, 15 );
-				rcmaterial = new THREE.MeshLambertMaterial( {
-					color: 0xff8080
-				} );
-				rcmesh = new THREE.Mesh( rcgeometry, rcmaterial );
-				rcmesh.position.set( - 80, 10, - 70 );
-				rcmesh.rotation.x = Math.PI / 2;
-				rcscene.add( rcmesh );
-
-				funfairs.push( rcmesh );
-
-				rcgeometry = new THREE.CylinderGeometry( 5, 6, 4, 10 );
-				rcmaterial = new THREE.MeshLambertMaterial( {
-					color: 0x8080ff
-				} );
-				rcmesh = new THREE.Mesh( rcgeometry, rcmaterial );
-				rcmesh.position.set( 50, 2, 30 );
-				rcscene.add( rcmesh );
-
-				funfairs.push( rcmesh );
-
 				// set up horse animation
 				horseLayer = renderer.xr.createQuadLayer( 1, 1, new THREE.Vector3( - 1.5, 1.5, - 1.5 ), new THREE.Quaternion(), 1024, 1024, renderQuad );
 				scene.add( horseLayer );
@@ -443,11 +331,12 @@
 
 				} );
 
+				// set up ui
+
 				function onChange() { }
 
 				function onThicknessChange() { }
 
-				// set up ui
 				guiScene = new THREE.Scene();
 				guiScene.background = new THREE.Color( 0x0 );
 
@@ -521,38 +410,6 @@
 			let progress = 0;
 
 			let prevTime = performance.now();
-
-			function renderCylinder() {
-
-				const time = performance.now();
-				for ( let i = 0; i < funfairs.length; i ++ ) {
-
-					funfairs[ i ].rotation.y = time * 0.0004;
-
-				}
-
-				//
-
-				progress += rcvelocity;
-				progress = progress % 1;
-
-				rcposition.copy( curve.getPointAt( progress ) );
-				rcposition.y += 0.3;
-
-				train.position.copy( rcposition );
-
-				tangent.copy( curve.getTangentAt( progress ) );
-
-				rcvelocity -= tangent.y * 0.0000001 * rcdelta;
-				rcvelocity = Math.max( 0.00004, Math.min( 0.0002, rcvelocity ) );
-
-				train.lookAt( lookAt.copy( rcposition ).sub( tangent ) );
-
-				//
-
-				renderer.render( rcscene, rccamera );
-
-			}
 
 			function buildController( data ) {
 

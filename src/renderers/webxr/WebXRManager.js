@@ -21,7 +21,6 @@ import {
 	UnsignedInt248Type,
 	ZeroFactor,
 } from '../../constants.js';
-import { CylinderGeometry } from '../../geometries/CylinderGeometry.js';
 import { PlaneGeometry } from '../../geometries/PlaneGeometry.js';
 import { MeshBasicMaterial } from '../../materials/MeshBasicMaterial.js';
 import { Mesh } from '../../objects/Mesh.js';
@@ -379,7 +378,7 @@ class WebXRManager extends EventDispatcher {
 					// switch layers to native
 					for ( const layer of layers ) {
 
-						layer.plane.material = new MeshBasicMaterial( { color: 0xffffff, side: layer.type === 'cylinder' ? BackSide : FrontSide } );
+						layer.plane.material = new MeshBasicMaterial( { color: 0xffffff, side: FrontSide } );
 						layer.plane.material.blending = CustomBlending;
 						layer.plane.material.blendEquation = AddEquation;
 						layer.plane.material.blendSrc = ZeroFactor;
@@ -391,18 +390,6 @@ class WebXRManager extends EventDispatcher {
 								transform: new XRRigidTransform( layer.translation, layer.quaternion ),
 								width: layer.width / 2,
 								height: layer.height / 2,
-								space: referenceSpace,
-								viewPixelWidth: layer.pixelwidth,
-								viewPixelHeight: layer.pixelheight
-							} );
-
-						} else {
-
-							layer.xrlayer = glBinding.createCylinderLayer( {
-								transform: new XRRigidTransform( layer.translation, layer.quaternion ),
-								radius: layer.radius,
-								centralAngle: layer.centralAngle,
-								aspectRatio: layer.aspectRatio,
 								space: referenceSpace,
 								viewPixelWidth: layer.pixelwidth,
 								viewPixelHeight: layer.pixelheight
@@ -762,81 +749,6 @@ class WebXRManager extends EventDispatcher {
 					transform: new XRRigidTransform( layer.translation, layer.quaternion ),
 					width: layer.width / 2,
 					height: layer.height / 2,
-					space: referenceSpace,
-					viewPixelWidth: layer.pixelwidth,
-					viewPixelHeight: layer.pixelheight
-				} );
-
-				const xrlayers = session.renderState.layers;
-				xrlayers.unshift( layer.xrlayer );
-				session.updateRenderState( { layers: xrlayers } );
-
-			}
-
-			return plane;
-
-		};
-
-		this.createCylinderLayer = function ( radius, centralAngle, aspectratio, translation, quaternion, pixelwidth, pixelheight, rendercall ) {
-
-			const geometry = new CylinderGeometry( radius, radius, radius * centralAngle / aspectratio, 64, 64, true, Math.PI - centralAngle / 2, centralAngle );
-			const renderTarget = new WebGLRenderTarget( pixelwidth, pixelheight,
-				{
-					format: RGBAFormat,
-					type: UnsignedByteType,
-					depthTexture: new DepthTexture(
-						pixelwidth,
-						pixelheight,
-						attributes.stencil ? UnsignedInt248Type : UnsignedIntType,
-						undefined,
-						undefined,
-						undefined,
-						undefined,
-						undefined,
-						undefined,
-						attributes.stencil ? DepthStencilFormat : DepthFormat
-					),
-					stencilBuffer: attributes.stencil,
-					encoding: renderer.outputEncoding,
-					samples: attributes.antialias ? 4 : 1
-				} );
-
-			renderer.properties.get( renderTarget ).__ignoreDepthValues = true;
-			const material = new MeshBasicMaterial( { color: 0xffffff, side: BackSide } );
-			material.map = renderTarget.texture;
-			const plane = new Mesh( geometry, material );
-			plane.position.copy( translation );
-			plane.quaternion.copy( quaternion );
-
-			const layer = {
-				type: 'cylinder',
-				radius: radius,
-				centralAngle: centralAngle,
-				aspectratio: aspectratio,
-				translation: translation,
-				quaternion: quaternion,
-				pixelwidth: pixelwidth,
-				pixelheight: pixelheight,
-				plane: plane,
-				material: material,
-				rendercall: rendercall,
-				renderTarget: renderTarget };
-
-			layers.push( layer );
-
-			if ( session !== null ) {
-
-				layer.plane.material = new MeshBasicMaterial( { color: 0xffffff, side: BackSide } );
-				layer.plane.material.blending = CustomBlending;
-				layer.plane.material.blendEquation = AddEquation;
-				layer.plane.material.blendSrc = ZeroFactor;
-				layer.plane.material.blendDst = ZeroFactor;
-
-				layer.xrlayer = glBinding.createCylinderLayer( {
-					transform: new XRRigidTransform( layer.translation, layer.quaternion ),
-					radius: layer.radius,
-					centralAngle: layer.centralAngle,
-					aspectRatio: layer.aspectRatio,
 					space: referenceSpace,
 					viewPixelWidth: layer.pixelwidth,
 					viewPixelHeight: layer.pixelheight
