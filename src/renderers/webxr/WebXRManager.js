@@ -10,7 +10,6 @@ import { WebXRController } from './WebXRController.js';
 import { DepthTexture } from '../../textures/DepthTexture.js';
 import {
 	AddEquation,
-	BackSide,
 	CustomBlending,
 	DepthFormat,
 	DepthStencilFormat,
