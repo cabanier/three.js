@@ -49,7 +49,6 @@
 			const relativeVelocity = new THREE.Vector3();
 
 			const clock = new THREE.Clock();
-			const PI2 = Math.PI * 2;
 
 			const tempMatrix = new THREE.Matrix4();
 			let raycaster = null;
@@ -361,14 +360,6 @@
 				renderer.render( horseScene, horseCamera );
 
 			}
-
-			const rcposition = new THREE.Vector3();
-			const tangent = new THREE.Vector3();
-
-			const lookAt = new THREE.Vector3();
-
-			let rcvelocity = 0;
-			let progress = 0;
 
 			let prevTime = performance.now();
 
