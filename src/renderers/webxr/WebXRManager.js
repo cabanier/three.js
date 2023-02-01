@@ -307,8 +307,9 @@ class WebXRManager extends EventDispatcher {
 
 				customReferenceSpace = null;
 				referenceSpace = await session.requestReferenceSpace( referenceSpaceType );
+				supportsLayers = session.renderState.layers !== undefined;
 
-				if ( ( session.renderState.layers === undefined ) || ( renderer.capabilities.isWebGL2 === false ) ) {
+				if ( supportsLayers === false || renderer.capabilities.isWebGL2 === false ) {
 
 					const layerInit = {
 						antialias: ( session.renderState.layers === undefined ) ? attributes.antialias : true,
@@ -335,7 +336,6 @@ class WebXRManager extends EventDispatcher {
 
 				} else {
 
-					supportsLayers = true;
 					let depthFormat = null;
 					let depthType = null;
 					let glDepthFormat = null;
