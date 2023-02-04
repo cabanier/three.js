@@ -5829,6 +5829,7 @@ class Material extends EventDispatcher {
 		this.premultipliedAlpha = false;
 		this.visible = true;
 		this.toneMapped = true;
+		this.velocity = false;
 		this.userData = {};
 		this.version = 0;
 		this._alphaTest = 0;
@@ -6011,6 +6012,7 @@ class Material extends EventDispatcher {
 		if (this.flatShading === true) data.flatShading = this.flatShading;
 		if (this.visible === false) data.visible = false;
 		if (this.toneMapped === false) data.toneMapped = false;
+		if (this.velocity === true) data.velocity = true;
 		if (this.fog === false) data.fog = false;
 		if (Object.keys(this.userData).length > 0) data.userData = this.userData;
 
@@ -6084,6 +6086,7 @@ class Material extends EventDispatcher {
 		this.premultipliedAlpha = source.premultipliedAlpha;
 		this.visible = source.visible;
 		this.toneMapped = source.toneMapped;
+		this.velocity = source.velocity;
 		this.userData = JSON.parse(JSON.stringify(source.userData));
 		return this;
 	}
@@ -8600,6 +8603,8 @@ var premultiplied_alpha_fragment = "#ifdef PREMULTIPLIED_ALPHA\n\tgl_FragColor.r
 
 var project_vertex = "vec4 mvPosition = vec4( transformed, 1.0 );\n#ifdef USE_INSTANCING\n\tmvPosition = instanceMatrix * mvPosition;\n#endif\nmvPosition = modelViewMatrix * mvPosition;\ngl_Position = projectionMatrix * mvPosition;";
 
+var velocity_vertex = "vec3 transformed = vec3( position );\nvec4 mvPosition = vec4( transformed, 1.0 );\nvec4 mvPreviousPosition = vec4( transformed, 1.0 );\n#ifdef USE_INSTANCING\n\tmvPosition = instanceMatrix * mvPosition;\n\tmvPreviousPosition = previousInstanceMatrix * mvPreviousPosition;\n#endif\nclipPositionCurrent = projectionMatrix * ( modelViewMatrix * mvPosition );\nclipPositionPrevious = projectionMatrix * ( previousViewMatrix * (previousModelMatrix * mvPreviousPosition ));\ngl_Position = clipPositionCurrent;";
+
 var dithering_fragment = "#ifdef DITHERING\n\tgl_FragColor.rgb = dithering( gl_FragColor.rgb );\n#endif";
 
 var dithering_pars_fragment = "#ifdef DITHERING\n\tvec3 dithering( vec3 color ) {\n\t\tfloat grid_position = rand( gl_FragCoord.xy );\n\t\tvec3 dither_shift_RGB = vec3( 0.25 / 255.0, -0.25 / 255.0, 0.25 / 255.0 );\n\t\tdither_shift_RGB = mix( 2.0 * dither_shift_RGB, -2.0 * dither_shift_RGB, grid_position );\n\t\treturn color + dither_shift_RGB;\n\t}\n#endif";
@@ -8650,56 +8655,59 @@ var uv2_vertex = "#if defined( USE_LIGHTMAP ) || defined( USE_AOMAP )\n\tvUv2 = 
 
 var worldpos_vertex = "#if defined( USE_ENVMAP ) || defined( DISTANCE ) || defined ( USE_SHADOWMAP ) || defined ( USE_TRANSMISSION ) || NUM_SPOT_LIGHT_COORDS > 0\n\tvec4 worldPosition = vec4( transformed, 1.0 );\n\t#ifdef USE_INSTANCING\n\t\tworldPosition = instanceMatrix * worldPosition;\n\t#endif\n\tworldPosition = modelMatrix * worldPosition;\n#endif";
 
-const vertex$h = "varying vec2 vUv;\nuniform mat3 uvTransform;\nvoid main() {\n\tvUv = ( uvTransform * vec3( uv, 1 ) ).xy;\n\tgl_Position = vec4( position.xy, 1.0, 1.0 );\n}";
-const fragment$h = "uniform sampler2D t2D;\nuniform float backgroundIntensity;\nvarying vec2 vUv;\nvoid main() {\n\tvec4 texColor = texture2D( t2D, vUv );\n\t#ifdef DECODE_VIDEO_TEXTURE\n\t\ttexColor = vec4( mix( pow( texColor.rgb * 0.9478672986 + vec3( 0.0521327014 ), vec3( 2.4 ) ), texColor.rgb * 0.0773993808, vec3( lessThanEqual( texColor.rgb, vec3( 0.04045 ) ) ) ), texColor.w );\n\t#endif\n\ttexColor.rgb *= backgroundIntensity;\n\tgl_FragColor = texColor;\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n}";
+const vertex$i = "varying vec2 vUv;\nuniform mat3 uvTransform;\nvoid main() {\n\tvUv = ( uvTransform * vec3( uv, 1 ) ).xy;\n\tgl_Position = vec4( position.xy, 1.0, 1.0 );\n}";
+const fragment$i = "uniform sampler2D t2D;\nuniform float backgroundIntensity;\nvarying vec2 vUv;\nvoid main() {\n\tvec4 texColor = texture2D( t2D, vUv );\n\t#ifdef DECODE_VIDEO_TEXTURE\n\t\ttexColor = vec4( mix( pow( texColor.rgb * 0.9478672986 + vec3( 0.0521327014 ), vec3( 2.4 ) ), texColor.rgb * 0.0773993808, vec3( lessThanEqual( texColor.rgb, vec3( 0.04045 ) ) ) ), texColor.w );\n\t#endif\n\ttexColor.rgb *= backgroundIntensity;\n\tgl_FragColor = texColor;\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n}";
+
+const vertex$h = "varying vec3 vWorldDirection;\n#include <common>\nvoid main() {\n\tvWorldDirection = transformDirection( position, modelMatrix );\n\t#include <begin_vertex>\n\t#include <project_vertex>\n\tgl_Position.z = gl_Position.w;\n}";
+const fragment$h = "#ifdef ENVMAP_TYPE_CUBE\n\tuniform samplerCube envMap;\n#elif defined( ENVMAP_TYPE_CUBE_UV )\n\tuniform sampler2D envMap;\n#endif\nuniform float flipEnvMap;\nuniform float backgroundBlurriness;\nuniform float backgroundIntensity;\nvarying vec3 vWorldDirection;\n#include <cube_uv_reflection_fragment>\nvoid main() {\n\t#ifdef ENVMAP_TYPE_CUBE\n\t\tvec4 texColor = textureCube( envMap, vec3( flipEnvMap * vWorldDirection.x, vWorldDirection.yz ) );\n\t#elif defined( ENVMAP_TYPE_CUBE_UV )\n\t\tvec4 texColor = textureCubeUV( envMap, vWorldDirection, backgroundBlurriness );\n\t#else\n\t\tvec4 texColor = vec4( 0.0, 0.0, 0.0, 1.0 );\n\t#endif\n\ttexColor.rgb *= backgroundIntensity;\n\tgl_FragColor = texColor;\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n}";
 
 const vertex$g = "varying vec3 vWorldDirection;\n#include <common>\nvoid main() {\n\tvWorldDirection = transformDirection( position, modelMatrix );\n\t#include <begin_vertex>\n\t#include <project_vertex>\n\tgl_Position.z = gl_Position.w;\n}";
-const fragment$g = "#ifdef ENVMAP_TYPE_CUBE\n\tuniform samplerCube envMap;\n#elif defined( ENVMAP_TYPE_CUBE_UV )\n\tuniform sampler2D envMap;\n#endif\nuniform float flipEnvMap;\nuniform float backgroundBlurriness;\nuniform float backgroundIntensity;\nvarying vec3 vWorldDirection;\n#include <cube_uv_reflection_fragment>\nvoid main() {\n\t#ifdef ENVMAP_TYPE_CUBE\n\t\tvec4 texColor = textureCube( envMap, vec3( flipEnvMap * vWorldDirection.x, vWorldDirection.yz ) );\n\t#elif defined( ENVMAP_TYPE_CUBE_UV )\n\t\tvec4 texColor = textureCubeUV( envMap, vWorldDirection, backgroundBlurriness );\n\t#else\n\t\tvec4 texColor = vec4( 0.0, 0.0, 0.0, 1.0 );\n\t#endif\n\ttexColor.rgb *= backgroundIntensity;\n\tgl_FragColor = texColor;\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n}";
+const fragment$g = "uniform samplerCube tCube;\nuniform float tFlip;\nuniform float opacity;\nvarying vec3 vWorldDirection;\nvoid main() {\n\tvec4 texColor = textureCube( tCube, vec3( tFlip * vWorldDirection.x, vWorldDirection.yz ) );\n\tgl_FragColor = texColor;\n\tgl_FragColor.a *= opacity;\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n}";
 
-const vertex$f = "varying vec3 vWorldDirection;\n#include <common>\nvoid main() {\n\tvWorldDirection = transformDirection( position, modelMatrix );\n\t#include <begin_vertex>\n\t#include <project_vertex>\n\tgl_Position.z = gl_Position.w;\n}";
-const fragment$f = "uniform samplerCube tCube;\nuniform float tFlip;\nuniform float opacity;\nvarying vec3 vWorldDirection;\nvoid main() {\n\tvec4 texColor = textureCube( tCube, vec3( tFlip * vWorldDirection.x, vWorldDirection.yz ) );\n\tgl_FragColor = texColor;\n\tgl_FragColor.a *= opacity;\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n}";
+const vertex$f = "#include <common>\n#include <uv_pars_vertex>\n#include <displacementmap_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvarying vec2 vHighPrecisionZW;\nvoid main() {\n\t#include <uv_vertex>\n\t#include <skinbase_vertex>\n\t#ifdef USE_DISPLACEMENTMAP\n\t\t#include <beginnormal_vertex>\n\t\t#include <morphnormal_vertex>\n\t\t#include <skinnormal_vertex>\n\t#endif\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <displacementmap_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\tvHighPrecisionZW = gl_Position.zw;\n}";
+const fragment$f = "#if DEPTH_PACKING == 3200\n\tuniform float opacity;\n#endif\n#include <common>\n#include <packing>\n#include <uv_pars_fragment>\n#include <map_pars_fragment>\n#include <alphamap_pars_fragment>\n#include <alphatest_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvarying vec2 vHighPrecisionZW;\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec4 diffuseColor = vec4( 1.0 );\n\t#if DEPTH_PACKING == 3200\n\t\tdiffuseColor.a = opacity;\n\t#endif\n\t#include <map_fragment>\n\t#include <alphamap_fragment>\n\t#include <alphatest_fragment>\n\t#include <logdepthbuf_fragment>\n\tfloat fragCoordZ = 0.5 * vHighPrecisionZW[0] / vHighPrecisionZW[1] + 0.5;\n\t#if DEPTH_PACKING == 3200\n\t\tgl_FragColor = vec4( vec3( 1.0 - fragCoordZ ), opacity );\n\t#elif DEPTH_PACKING == 3201\n\t\tgl_FragColor = packDepthToRGBA( fragCoordZ );\n\t#endif\n}";
 
-const vertex$e = "#include <common>\n#include <uv_pars_vertex>\n#include <displacementmap_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvarying vec2 vHighPrecisionZW;\nvoid main() {\n\t#include <uv_vertex>\n\t#include <skinbase_vertex>\n\t#ifdef USE_DISPLACEMENTMAP\n\t\t#include <beginnormal_vertex>\n\t\t#include <morphnormal_vertex>\n\t\t#include <skinnormal_vertex>\n\t#endif\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <displacementmap_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\tvHighPrecisionZW = gl_Position.zw;\n}";
-const fragment$e = "#if DEPTH_PACKING == 3200\n\tuniform float opacity;\n#endif\n#include <common>\n#include <packing>\n#include <uv_pars_fragment>\n#include <map_pars_fragment>\n#include <alphamap_pars_fragment>\n#include <alphatest_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvarying vec2 vHighPrecisionZW;\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec4 diffuseColor = vec4( 1.0 );\n\t#if DEPTH_PACKING == 3200\n\t\tdiffuseColor.a = opacity;\n\t#endif\n\t#include <map_fragment>\n\t#include <alphamap_fragment>\n\t#include <alphatest_fragment>\n\t#include <logdepthbuf_fragment>\n\tfloat fragCoordZ = 0.5 * vHighPrecisionZW[0] / vHighPrecisionZW[1] + 0.5;\n\t#if DEPTH_PACKING == 3200\n\t\tgl_FragColor = vec4( vec3( 1.0 - fragCoordZ ), opacity );\n\t#elif DEPTH_PACKING == 3201\n\t\tgl_FragColor = packDepthToRGBA( fragCoordZ );\n\t#endif\n}";
+const vertex$e = "#define DISTANCE\nvarying vec3 vWorldPosition;\n#include <common>\n#include <uv_pars_vertex>\n#include <displacementmap_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\t#include <skinbase_vertex>\n\t#ifdef USE_DISPLACEMENTMAP\n\t\t#include <beginnormal_vertex>\n\t\t#include <morphnormal_vertex>\n\t\t#include <skinnormal_vertex>\n\t#endif\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <displacementmap_vertex>\n\t#include <project_vertex>\n\t#include <worldpos_vertex>\n\t#include <clipping_planes_vertex>\n\tvWorldPosition = worldPosition.xyz;\n}";
+const fragment$e = "#define DISTANCE\nuniform vec3 referencePosition;\nuniform float nearDistance;\nuniform float farDistance;\nvarying vec3 vWorldPosition;\n#include <common>\n#include <packing>\n#include <uv_pars_fragment>\n#include <map_pars_fragment>\n#include <alphamap_pars_fragment>\n#include <alphatest_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main () {\n\t#include <clipping_planes_fragment>\n\tvec4 diffuseColor = vec4( 1.0 );\n\t#include <map_fragment>\n\t#include <alphamap_fragment>\n\t#include <alphatest_fragment>\n\tfloat dist = length( vWorldPosition - referencePosition );\n\tdist = ( dist - nearDistance ) / ( farDistance - nearDistance );\n\tdist = saturate( dist );\n\tgl_FragColor = packDepthToRGBA( dist );\n}";
 
-const vertex$d = "#define DISTANCE\nvarying vec3 vWorldPosition;\n#include <common>\n#include <uv_pars_vertex>\n#include <displacementmap_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\t#include <skinbase_vertex>\n\t#ifdef USE_DISPLACEMENTMAP\n\t\t#include <beginnormal_vertex>\n\t\t#include <morphnormal_vertex>\n\t\t#include <skinnormal_vertex>\n\t#endif\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <displacementmap_vertex>\n\t#include <project_vertex>\n\t#include <worldpos_vertex>\n\t#include <clipping_planes_vertex>\n\tvWorldPosition = worldPosition.xyz;\n}";
-const fragment$d = "#define DISTANCE\nuniform vec3 referencePosition;\nuniform float nearDistance;\nuniform float farDistance;\nvarying vec3 vWorldPosition;\n#include <common>\n#include <packing>\n#include <uv_pars_fragment>\n#include <map_pars_fragment>\n#include <alphamap_pars_fragment>\n#include <alphatest_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main () {\n\t#include <clipping_planes_fragment>\n\tvec4 diffuseColor = vec4( 1.0 );\n\t#include <map_fragment>\n\t#include <alphamap_fragment>\n\t#include <alphatest_fragment>\n\tfloat dist = length( vWorldPosition - referencePosition );\n\tdist = ( dist - nearDistance ) / ( farDistance - nearDistance );\n\tdist = saturate( dist );\n\tgl_FragColor = packDepthToRGBA( dist );\n}";
+const vertex$d = "varying vec3 vWorldDirection;\n#include <common>\nvoid main() {\n\tvWorldDirection = transformDirection( position, modelMatrix );\n\t#include <begin_vertex>\n\t#include <project_vertex>\n}";
+const fragment$d = "uniform sampler2D tEquirect;\nvarying vec3 vWorldDirection;\n#include <common>\nvoid main() {\n\tvec3 direction = normalize( vWorldDirection );\n\tvec2 sampleUV = equirectUv( direction );\n\tgl_FragColor = texture2D( tEquirect, sampleUV );\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n}";
 
-const vertex$c = "varying vec3 vWorldDirection;\n#include <common>\nvoid main() {\n\tvWorldDirection = transformDirection( position, modelMatrix );\n\t#include <begin_vertex>\n\t#include <project_vertex>\n}";
-const fragment$c = "uniform sampler2D tEquirect;\nvarying vec3 vWorldDirection;\n#include <common>\nvoid main() {\n\tvec3 direction = normalize( vWorldDirection );\n\tvec2 sampleUV = equirectUv( direction );\n\tgl_FragColor = texture2D( tEquirect, sampleUV );\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n}";
+const vertex$c = "uniform float scale;\nattribute float lineDistance;\nvarying float vLineDistance;\n#include <common>\n#include <color_pars_vertex>\n#include <fog_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\tvLineDistance = scale * lineDistance;\n\t#include <color_vertex>\n\t#include <morphcolor_vertex>\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\t#include <fog_vertex>\n}";
+const fragment$c = "uniform vec3 diffuse;\nuniform float opacity;\nuniform float dashSize;\nuniform float totalSize;\nvarying float vLineDistance;\n#include <common>\n#include <color_pars_fragment>\n#include <fog_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tif ( mod( vLineDistance, totalSize ) > dashSize ) {\n\t\tdiscard;\n\t}\n\tvec3 outgoingLight = vec3( 0.0 );\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\t#include <logdepthbuf_fragment>\n\t#include <color_fragment>\n\toutgoingLight = diffuseColor.rgb;\n\t#include <output_fragment>\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n\t#include <premultiplied_alpha_fragment>\n}";
 
-const vertex$b = "uniform float scale;\nattribute float lineDistance;\nvarying float vLineDistance;\n#include <common>\n#include <color_pars_vertex>\n#include <fog_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\tvLineDistance = scale * lineDistance;\n\t#include <color_vertex>\n\t#include <morphcolor_vertex>\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\t#include <fog_vertex>\n}";
-const fragment$b = "uniform vec3 diffuse;\nuniform float opacity;\nuniform float dashSize;\nuniform float totalSize;\nvarying float vLineDistance;\n#include <common>\n#include <color_pars_fragment>\n#include <fog_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tif ( mod( vLineDistance, totalSize ) > dashSize ) {\n\t\tdiscard;\n\t}\n\tvec3 outgoingLight = vec3( 0.0 );\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\t#include <logdepthbuf_fragment>\n\t#include <color_fragment>\n\toutgoingLight = diffuseColor.rgb;\n\t#include <output_fragment>\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n\t#include <premultiplied_alpha_fragment>\n}";
+const vertex$b = "#include <common>\n#include <uv_pars_vertex>\n#include <uv2_pars_vertex>\n#include <envmap_pars_vertex>\n#include <color_pars_vertex>\n#include <fog_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\t#include <uv2_vertex>\n\t#include <color_vertex>\n\t#include <morphcolor_vertex>\n\t#if defined ( USE_ENVMAP ) || defined ( USE_SKINNING )\n\t\t#include <beginnormal_vertex>\n\t\t#include <morphnormal_vertex>\n\t\t#include <skinbase_vertex>\n\t\t#include <skinnormal_vertex>\n\t\t#include <defaultnormal_vertex>\n\t#endif\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\t#include <worldpos_vertex>\n\t#include <envmap_vertex>\n\t#include <fog_vertex>\n}";
+const fragment$b = "uniform vec3 diffuse;\nuniform float opacity;\n#ifndef FLAT_SHADED\n\tvarying vec3 vNormal;\n#endif\n#include <common>\n#include <dithering_pars_fragment>\n#include <color_pars_fragment>\n#include <uv_pars_fragment>\n#include <uv2_pars_fragment>\n#include <map_pars_fragment>\n#include <alphamap_pars_fragment>\n#include <alphatest_pars_fragment>\n#include <aomap_pars_fragment>\n#include <lightmap_pars_fragment>\n#include <envmap_common_pars_fragment>\n#include <envmap_pars_fragment>\n#include <fog_pars_fragment>\n#include <specularmap_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\t#include <logdepthbuf_fragment>\n\t#include <map_fragment>\n\t#include <color_fragment>\n\t#include <alphamap_fragment>\n\t#include <alphatest_fragment>\n\t#include <specularmap_fragment>\n\tReflectedLight reflectedLight = ReflectedLight( vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ) );\n\t#ifdef USE_LIGHTMAP\n\t\tvec4 lightMapTexel = texture2D( lightMap, vUv2 );\n\t\treflectedLight.indirectDiffuse += lightMapTexel.rgb * lightMapIntensity * RECIPROCAL_PI;\n\t#else\n\t\treflectedLight.indirectDiffuse += vec3( 1.0 );\n\t#endif\n\t#include <aomap_fragment>\n\treflectedLight.indirectDiffuse *= diffuseColor.rgb;\n\tvec3 outgoingLight = reflectedLight.indirectDiffuse;\n\t#include <envmap_fragment>\n\t#include <output_fragment>\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n\t#include <premultiplied_alpha_fragment>\n\t#include <dithering_fragment>\n}";
 
-const vertex$a = "#include <common>\n#include <uv_pars_vertex>\n#include <uv2_pars_vertex>\n#include <envmap_pars_vertex>\n#include <color_pars_vertex>\n#include <fog_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\t#include <uv2_vertex>\n\t#include <color_vertex>\n\t#include <morphcolor_vertex>\n\t#if defined ( USE_ENVMAP ) || defined ( USE_SKINNING )\n\t\t#include <beginnormal_vertex>\n\t\t#include <morphnormal_vertex>\n\t\t#include <skinbase_vertex>\n\t\t#include <skinnormal_vertex>\n\t\t#include <defaultnormal_vertex>\n\t#endif\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\t#include <worldpos_vertex>\n\t#include <envmap_vertex>\n\t#include <fog_vertex>\n}";
-const fragment$a = "uniform vec3 diffuse;\nuniform float opacity;\n#ifndef FLAT_SHADED\n\tvarying vec3 vNormal;\n#endif\n#include <common>\n#include <dithering_pars_fragment>\n#include <color_pars_fragment>\n#include <uv_pars_fragment>\n#include <uv2_pars_fragment>\n#include <map_pars_fragment>\n#include <alphamap_pars_fragment>\n#include <alphatest_pars_fragment>\n#include <aomap_pars_fragment>\n#include <lightmap_pars_fragment>\n#include <envmap_common_pars_fragment>\n#include <envmap_pars_fragment>\n#include <fog_pars_fragment>\n#include <specularmap_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\t#include <logdepthbuf_fragment>\n\t#include <map_fragment>\n\t#include <color_fragment>\n\t#include <alphamap_fragment>\n\t#include <alphatest_fragment>\n\t#include <specularmap_fragment>\n\tReflectedLight reflectedLight = ReflectedLight( vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ) );\n\t#ifdef USE_LIGHTMAP\n\t\tvec4 lightMapTexel = texture2D( lightMap, vUv2 );\n\t\treflectedLight.indirectDiffuse += lightMapTexel.rgb * lightMapIntensity * RECIPROCAL_PI;\n\t#else\n\t\treflectedLight.indirectDiffuse += vec3( 1.0 );\n\t#endif\n\t#include <aomap_fragment>\n\treflectedLight.indirectDiffuse *= diffuseColor.rgb;\n\tvec3 outgoingLight = reflectedLight.indirectDiffuse;\n\t#include <envmap_fragment>\n\t#include <output_fragment>\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n\t#include <premultiplied_alpha_fragment>\n\t#include <dithering_fragment>\n}";
+const vertex$a = "#define LAMBERT\nvarying vec3 vViewPosition;\n#include <common>\n#include <uv_pars_vertex>\n#include <uv2_pars_vertex>\n#include <displacementmap_pars_vertex>\n#include <envmap_pars_vertex>\n#include <color_pars_vertex>\n#include <fog_pars_vertex>\n#include <normal_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <shadowmap_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\t#include <uv2_vertex>\n\t#include <color_vertex>\n\t#include <morphcolor_vertex>\n\t#include <beginnormal_vertex>\n\t#include <morphnormal_vertex>\n\t#include <skinbase_vertex>\n\t#include <skinnormal_vertex>\n\t#include <defaultnormal_vertex>\n\t#include <normal_vertex>\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <displacementmap_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\tvViewPosition = - mvPosition.xyz;\n\t#include <worldpos_vertex>\n\t#include <envmap_vertex>\n\t#include <shadowmap_vertex>\n\t#include <fog_vertex>\n}";
+const fragment$a = "#define LAMBERT\nuniform vec3 diffuse;\nuniform vec3 emissive;\nuniform float opacity;\n#include <common>\n#include <packing>\n#include <dithering_pars_fragment>\n#include <color_pars_fragment>\n#include <uv_pars_fragment>\n#include <uv2_pars_fragment>\n#include <map_pars_fragment>\n#include <alphamap_pars_fragment>\n#include <alphatest_pars_fragment>\n#include <aomap_pars_fragment>\n#include <lightmap_pars_fragment>\n#include <emissivemap_pars_fragment>\n#include <envmap_common_pars_fragment>\n#include <envmap_pars_fragment>\n#include <fog_pars_fragment>\n#include <bsdfs>\n#include <lights_pars_begin>\n#include <normal_pars_fragment>\n#include <lights_lambert_pars_fragment>\n#include <shadowmap_pars_fragment>\n#include <bumpmap_pars_fragment>\n#include <normalmap_pars_fragment>\n#include <specularmap_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\tReflectedLight reflectedLight = ReflectedLight( vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ) );\n\tvec3 totalEmissiveRadiance = emissive;\n\t#include <logdepthbuf_fragment>\n\t#include <map_fragment>\n\t#include <color_fragment>\n\t#include <alphamap_fragment>\n\t#include <alphatest_fragment>\n\t#include <specularmap_fragment>\n\t#include <normal_fragment_begin>\n\t#include <normal_fragment_maps>\n\t#include <emissivemap_fragment>\n\t#include <lights_lambert_fragment>\n\t#include <lights_fragment_begin>\n\t#include <lights_fragment_maps>\n\t#include <lights_fragment_end>\n\t#include <aomap_fragment>\n\tvec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + totalEmissiveRadiance;\n\t#include <envmap_fragment>\n\t#include <output_fragment>\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n\t#include <premultiplied_alpha_fragment>\n\t#include <dithering_fragment>\n}";
 
-const vertex$9 = "#define LAMBERT\nvarying vec3 vViewPosition;\n#include <common>\n#include <uv_pars_vertex>\n#include <uv2_pars_vertex>\n#include <displacementmap_pars_vertex>\n#include <envmap_pars_vertex>\n#include <color_pars_vertex>\n#include <fog_pars_vertex>\n#include <normal_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <shadowmap_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\t#include <uv2_vertex>\n\t#include <color_vertex>\n\t#include <morphcolor_vertex>\n\t#include <beginnormal_vertex>\n\t#include <morphnormal_vertex>\n\t#include <skinbase_vertex>\n\t#include <skinnormal_vertex>\n\t#include <defaultnormal_vertex>\n\t#include <normal_vertex>\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <displacementmap_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\tvViewPosition = - mvPosition.xyz;\n\t#include <worldpos_vertex>\n\t#include <envmap_vertex>\n\t#include <shadowmap_vertex>\n\t#include <fog_vertex>\n}";
-const fragment$9 = "#define LAMBERT\nuniform vec3 diffuse;\nuniform vec3 emissive;\nuniform float opacity;\n#include <common>\n#include <packing>\n#include <dithering_pars_fragment>\n#include <color_pars_fragment>\n#include <uv_pars_fragment>\n#include <uv2_pars_fragment>\n#include <map_pars_fragment>\n#include <alphamap_pars_fragment>\n#include <alphatest_pars_fragment>\n#include <aomap_pars_fragment>\n#include <lightmap_pars_fragment>\n#include <emissivemap_pars_fragment>\n#include <envmap_common_pars_fragment>\n#include <envmap_pars_fragment>\n#include <fog_pars_fragment>\n#include <bsdfs>\n#include <lights_pars_begin>\n#include <normal_pars_fragment>\n#include <lights_lambert_pars_fragment>\n#include <shadowmap_pars_fragment>\n#include <bumpmap_pars_fragment>\n#include <normalmap_pars_fragment>\n#include <specularmap_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\tReflectedLight reflectedLight = ReflectedLight( vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ) );\n\tvec3 totalEmissiveRadiance = emissive;\n\t#include <logdepthbuf_fragment>\n\t#include <map_fragment>\n\t#include <color_fragment>\n\t#include <alphamap_fragment>\n\t#include <alphatest_fragment>\n\t#include <specularmap_fragment>\n\t#include <normal_fragment_begin>\n\t#include <normal_fragment_maps>\n\t#include <emissivemap_fragment>\n\t#include <lights_lambert_fragment>\n\t#include <lights_fragment_begin>\n\t#include <lights_fragment_maps>\n\t#include <lights_fragment_end>\n\t#include <aomap_fragment>\n\tvec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + totalEmissiveRadiance;\n\t#include <envmap_fragment>\n\t#include <output_fragment>\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n\t#include <premultiplied_alpha_fragment>\n\t#include <dithering_fragment>\n}";
+const vertex$9 = "#define MATCAP\nvarying vec3 vViewPosition;\n#include <common>\n#include <uv_pars_vertex>\n#include <color_pars_vertex>\n#include <displacementmap_pars_vertex>\n#include <fog_pars_vertex>\n#include <normal_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\t#include <color_vertex>\n\t#include <morphcolor_vertex>\n\t#include <beginnormal_vertex>\n\t#include <morphnormal_vertex>\n\t#include <skinbase_vertex>\n\t#include <skinnormal_vertex>\n\t#include <defaultnormal_vertex>\n\t#include <normal_vertex>\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <displacementmap_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\t#include <fog_vertex>\n\tvViewPosition = - mvPosition.xyz;\n}";
+const fragment$9 = "#define MATCAP\nuniform vec3 diffuse;\nuniform float opacity;\nuniform sampler2D matcap;\nvarying vec3 vViewPosition;\n#include <common>\n#include <dithering_pars_fragment>\n#include <color_pars_fragment>\n#include <uv_pars_fragment>\n#include <map_pars_fragment>\n#include <alphamap_pars_fragment>\n#include <alphatest_pars_fragment>\n#include <fog_pars_fragment>\n#include <normal_pars_fragment>\n#include <bumpmap_pars_fragment>\n#include <normalmap_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\t#include <logdepthbuf_fragment>\n\t#include <map_fragment>\n\t#include <color_fragment>\n\t#include <alphamap_fragment>\n\t#include <alphatest_fragment>\n\t#include <normal_fragment_begin>\n\t#include <normal_fragment_maps>\n\tvec3 viewDir = normalize( vViewPosition );\n\tvec3 x = normalize( vec3( viewDir.z, 0.0, - viewDir.x ) );\n\tvec3 y = cross( viewDir, x );\n\tvec2 uv = vec2( dot( x, normal ), dot( y, normal ) ) * 0.495 + 0.5;\n\t#ifdef USE_MATCAP\n\t\tvec4 matcapColor = texture2D( matcap, uv );\n\t#else\n\t\tvec4 matcapColor = vec4( vec3( mix( 0.2, 0.8, uv.y ) ), 1.0 );\n\t#endif\n\tvec3 outgoingLight = diffuseColor.rgb * matcapColor.rgb;\n\t#include <output_fragment>\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n\t#include <premultiplied_alpha_fragment>\n\t#include <dithering_fragment>\n}";
 
-const vertex$8 = "#define MATCAP\nvarying vec3 vViewPosition;\n#include <common>\n#include <uv_pars_vertex>\n#include <color_pars_vertex>\n#include <displacementmap_pars_vertex>\n#include <fog_pars_vertex>\n#include <normal_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\t#include <color_vertex>\n\t#include <morphcolor_vertex>\n\t#include <beginnormal_vertex>\n\t#include <morphnormal_vertex>\n\t#include <skinbase_vertex>\n\t#include <skinnormal_vertex>\n\t#include <defaultnormal_vertex>\n\t#include <normal_vertex>\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <displacementmap_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\t#include <fog_vertex>\n\tvViewPosition = - mvPosition.xyz;\n}";
-const fragment$8 = "#define MATCAP\nuniform vec3 diffuse;\nuniform float opacity;\nuniform sampler2D matcap;\nvarying vec3 vViewPosition;\n#include <common>\n#include <dithering_pars_fragment>\n#include <color_pars_fragment>\n#include <uv_pars_fragment>\n#include <map_pars_fragment>\n#include <alphamap_pars_fragment>\n#include <alphatest_pars_fragment>\n#include <fog_pars_fragment>\n#include <normal_pars_fragment>\n#include <bumpmap_pars_fragment>\n#include <normalmap_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\t#include <logdepthbuf_fragment>\n\t#include <map_fragment>\n\t#include <color_fragment>\n\t#include <alphamap_fragment>\n\t#include <alphatest_fragment>\n\t#include <normal_fragment_begin>\n\t#include <normal_fragment_maps>\n\tvec3 viewDir = normalize( vViewPosition );\n\tvec3 x = normalize( vec3( viewDir.z, 0.0, - viewDir.x ) );\n\tvec3 y = cross( viewDir, x );\n\tvec2 uv = vec2( dot( x, normal ), dot( y, normal ) ) * 0.495 + 0.5;\n\t#ifdef USE_MATCAP\n\t\tvec4 matcapColor = texture2D( matcap, uv );\n\t#else\n\t\tvec4 matcapColor = vec4( vec3( mix( 0.2, 0.8, uv.y ) ), 1.0 );\n\t#endif\n\tvec3 outgoingLight = diffuseColor.rgb * matcapColor.rgb;\n\t#include <output_fragment>\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n\t#include <premultiplied_alpha_fragment>\n\t#include <dithering_fragment>\n}";
+const vertex$8 = "#define NORMAL\n#if defined( FLAT_SHADED ) || defined( USE_BUMPMAP ) || defined( TANGENTSPACE_NORMALMAP )\n\tvarying vec3 vViewPosition;\n#endif\n#include <common>\n#include <uv_pars_vertex>\n#include <displacementmap_pars_vertex>\n#include <normal_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\t#include <beginnormal_vertex>\n\t#include <morphnormal_vertex>\n\t#include <skinbase_vertex>\n\t#include <skinnormal_vertex>\n\t#include <defaultnormal_vertex>\n\t#include <normal_vertex>\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <displacementmap_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n#if defined( FLAT_SHADED ) || defined( USE_BUMPMAP ) || defined( TANGENTSPACE_NORMALMAP )\n\tvViewPosition = - mvPosition.xyz;\n#endif\n}";
+const fragment$8 = "#define NORMAL\nuniform float opacity;\n#if defined( FLAT_SHADED ) || defined( USE_BUMPMAP ) || defined( TANGENTSPACE_NORMALMAP )\n\tvarying vec3 vViewPosition;\n#endif\n#include <packing>\n#include <uv_pars_fragment>\n#include <normal_pars_fragment>\n#include <bumpmap_pars_fragment>\n#include <normalmap_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\t#include <logdepthbuf_fragment>\n\t#include <normal_fragment_begin>\n\t#include <normal_fragment_maps>\n\tgl_FragColor = vec4( packNormalToRGB( normal ), opacity );\n\t#ifdef OPAQUE\n\t\tgl_FragColor.a = 1.0;\n\t#endif\n}";
 
-const vertex$7 = "#define NORMAL\n#if defined( FLAT_SHADED ) || defined( USE_BUMPMAP ) || defined( TANGENTSPACE_NORMALMAP )\n\tvarying vec3 vViewPosition;\n#endif\n#include <common>\n#include <uv_pars_vertex>\n#include <displacementmap_pars_vertex>\n#include <normal_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\t#include <beginnormal_vertex>\n\t#include <morphnormal_vertex>\n\t#include <skinbase_vertex>\n\t#include <skinnormal_vertex>\n\t#include <defaultnormal_vertex>\n\t#include <normal_vertex>\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <displacementmap_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n#if defined( FLAT_SHADED ) || defined( USE_BUMPMAP ) || defined( TANGENTSPACE_NORMALMAP )\n\tvViewPosition = - mvPosition.xyz;\n#endif\n}";
-const fragment$7 = "#define NORMAL\nuniform float opacity;\n#if defined( FLAT_SHADED ) || defined( USE_BUMPMAP ) || defined( TANGENTSPACE_NORMALMAP )\n\tvarying vec3 vViewPosition;\n#endif\n#include <packing>\n#include <uv_pars_fragment>\n#include <normal_pars_fragment>\n#include <bumpmap_pars_fragment>\n#include <normalmap_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\t#include <logdepthbuf_fragment>\n\t#include <normal_fragment_begin>\n\t#include <normal_fragment_maps>\n\tgl_FragColor = vec4( packNormalToRGB( normal ), opacity );\n\t#ifdef OPAQUE\n\t\tgl_FragColor.a = 1.0;\n\t#endif\n}";
+const vertex$7 = "#define PHONG\nvarying vec3 vViewPosition;\n#include <common>\n#include <uv_pars_vertex>\n#include <uv2_pars_vertex>\n#include <displacementmap_pars_vertex>\n#include <envmap_pars_vertex>\n#include <color_pars_vertex>\n#include <fog_pars_vertex>\n#include <normal_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <shadowmap_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\t#include <uv2_vertex>\n\t#include <color_vertex>\n\t#include <morphcolor_vertex>\n\t#include <beginnormal_vertex>\n\t#include <morphnormal_vertex>\n\t#include <skinbase_vertex>\n\t#include <skinnormal_vertex>\n\t#include <defaultnormal_vertex>\n\t#include <normal_vertex>\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <displacementmap_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\tvViewPosition = - mvPosition.xyz;\n\t#include <worldpos_vertex>\n\t#include <envmap_vertex>\n\t#include <shadowmap_vertex>\n\t#include <fog_vertex>\n}";
+const fragment$7 = "#define PHONG\nuniform vec3 diffuse;\nuniform vec3 emissive;\nuniform vec3 specular;\nuniform float shininess;\nuniform float opacity;\n#include <common>\n#include <packing>\n#include <dithering_pars_fragment>\n#include <color_pars_fragment>\n#include <uv_pars_fragment>\n#include <uv2_pars_fragment>\n#include <map_pars_fragment>\n#include <alphamap_pars_fragment>\n#include <alphatest_pars_fragment>\n#include <aomap_pars_fragment>\n#include <lightmap_pars_fragment>\n#include <emissivemap_pars_fragment>\n#include <envmap_common_pars_fragment>\n#include <envmap_pars_fragment>\n#include <fog_pars_fragment>\n#include <bsdfs>\n#include <lights_pars_begin>\n#include <normal_pars_fragment>\n#include <lights_phong_pars_fragment>\n#include <shadowmap_pars_fragment>\n#include <bumpmap_pars_fragment>\n#include <normalmap_pars_fragment>\n#include <specularmap_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\tReflectedLight reflectedLight = ReflectedLight( vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ) );\n\tvec3 totalEmissiveRadiance = emissive;\n\t#include <logdepthbuf_fragment>\n\t#include <map_fragment>\n\t#include <color_fragment>\n\t#include <alphamap_fragment>\n\t#include <alphatest_fragment>\n\t#include <specularmap_fragment>\n\t#include <normal_fragment_begin>\n\t#include <normal_fragment_maps>\n\t#include <emissivemap_fragment>\n\t#include <lights_phong_fragment>\n\t#include <lights_fragment_begin>\n\t#include <lights_fragment_maps>\n\t#include <lights_fragment_end>\n\t#include <aomap_fragment>\n\tvec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + reflectedLight.directSpecular + reflectedLight.indirectSpecular + totalEmissiveRadiance;\n\t#include <envmap_fragment>\n\t#include <output_fragment>\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n\t#include <premultiplied_alpha_fragment>\n\t#include <dithering_fragment>\n}";
 
-const vertex$6 = "#define PHONG\nvarying vec3 vViewPosition;\n#include <common>\n#include <uv_pars_vertex>\n#include <uv2_pars_vertex>\n#include <displacementmap_pars_vertex>\n#include <envmap_pars_vertex>\n#include <color_pars_vertex>\n#include <fog_pars_vertex>\n#include <normal_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <shadowmap_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\t#include <uv2_vertex>\n\t#include <color_vertex>\n\t#include <morphcolor_vertex>\n\t#include <beginnormal_vertex>\n\t#include <morphnormal_vertex>\n\t#include <skinbase_vertex>\n\t#include <skinnormal_vertex>\n\t#include <defaultnormal_vertex>\n\t#include <normal_vertex>\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <displacementmap_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\tvViewPosition = - mvPosition.xyz;\n\t#include <worldpos_vertex>\n\t#include <envmap_vertex>\n\t#include <shadowmap_vertex>\n\t#include <fog_vertex>\n}";
-const fragment$6 = "#define PHONG\nuniform vec3 diffuse;\nuniform vec3 emissive;\nuniform vec3 specular;\nuniform float shininess;\nuniform float opacity;\n#include <common>\n#include <packing>\n#include <dithering_pars_fragment>\n#include <color_pars_fragment>\n#include <uv_pars_fragment>\n#include <uv2_pars_fragment>\n#include <map_pars_fragment>\n#include <alphamap_pars_fragment>\n#include <alphatest_pars_fragment>\n#include <aomap_pars_fragment>\n#include <lightmap_pars_fragment>\n#include <emissivemap_pars_fragment>\n#include <envmap_common_pars_fragment>\n#include <envmap_pars_fragment>\n#include <fog_pars_fragment>\n#include <bsdfs>\n#include <lights_pars_begin>\n#include <normal_pars_fragment>\n#include <lights_phong_pars_fragment>\n#include <shadowmap_pars_fragment>\n#include <bumpmap_pars_fragment>\n#include <normalmap_pars_fragment>\n#include <specularmap_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\tReflectedLight reflectedLight = ReflectedLight( vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ) );\n\tvec3 totalEmissiveRadiance = emissive;\n\t#include <logdepthbuf_fragment>\n\t#include <map_fragment>\n\t#include <color_fragment>\n\t#include <alphamap_fragment>\n\t#include <alphatest_fragment>\n\t#include <specularmap_fragment>\n\t#include <normal_fragment_begin>\n\t#include <normal_fragment_maps>\n\t#include <emissivemap_fragment>\n\t#include <lights_phong_fragment>\n\t#include <lights_fragment_begin>\n\t#include <lights_fragment_maps>\n\t#include <lights_fragment_end>\n\t#include <aomap_fragment>\n\tvec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + reflectedLight.directSpecular + reflectedLight.indirectSpecular + totalEmissiveRadiance;\n\t#include <envmap_fragment>\n\t#include <output_fragment>\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n\t#include <premultiplied_alpha_fragment>\n\t#include <dithering_fragment>\n}";
+const vertex$6 = "#define STANDARD\nvarying vec3 vViewPosition;\n#ifdef USE_TRANSMISSION\n\tvarying vec3 vWorldPosition;\n#endif\n#include <common>\n#include <uv_pars_vertex>\n#include <uv2_pars_vertex>\n#include <displacementmap_pars_vertex>\n#include <color_pars_vertex>\n#include <fog_pars_vertex>\n#include <normal_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <shadowmap_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\t#include <uv2_vertex>\n\t#include <color_vertex>\n\t#include <morphcolor_vertex>\n\t#include <beginnormal_vertex>\n\t#include <morphnormal_vertex>\n\t#include <skinbase_vertex>\n\t#include <skinnormal_vertex>\n\t#include <defaultnormal_vertex>\n\t#include <normal_vertex>\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <displacementmap_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\tvViewPosition = - mvPosition.xyz;\n\t#include <worldpos_vertex>\n\t#include <shadowmap_vertex>\n\t#include <fog_vertex>\n#ifdef USE_TRANSMISSION\n\tvWorldPosition = worldPosition.xyz;\n#endif\n}";
+const fragment$6 = "#define STANDARD\n#ifdef PHYSICAL\n\t#define IOR\n\t#define SPECULAR\n#endif\nuniform vec3 diffuse;\nuniform vec3 emissive;\nuniform float roughness;\nuniform float metalness;\nuniform float opacity;\n#ifdef IOR\n\tuniform float ior;\n#endif\n#ifdef SPECULAR\n\tuniform float specularIntensity;\n\tuniform vec3 specularColor;\n\t#ifdef USE_SPECULARINTENSITYMAP\n\t\tuniform sampler2D specularIntensityMap;\n\t#endif\n\t#ifdef USE_SPECULARCOLORMAP\n\t\tuniform sampler2D specularColorMap;\n\t#endif\n#endif\n#ifdef USE_CLEARCOAT\n\tuniform float clearcoat;\n\tuniform float clearcoatRoughness;\n#endif\n#ifdef USE_IRIDESCENCE\n\tuniform float iridescence;\n\tuniform float iridescenceIOR;\n\tuniform float iridescenceThicknessMinimum;\n\tuniform float iridescenceThicknessMaximum;\n#endif\n#ifdef USE_SHEEN\n\tuniform vec3 sheenColor;\n\tuniform float sheenRoughness;\n\t#ifdef USE_SHEENCOLORMAP\n\t\tuniform sampler2D sheenColorMap;\n\t#endif\n\t#ifdef USE_SHEENROUGHNESSMAP\n\t\tuniform sampler2D sheenRoughnessMap;\n\t#endif\n#endif\nvarying vec3 vViewPosition;\n#include <common>\n#include <packing>\n#include <dithering_pars_fragment>\n#include <color_pars_fragment>\n#include <uv_pars_fragment>\n#include <uv2_pars_fragment>\n#include <map_pars_fragment>\n#include <alphamap_pars_fragment>\n#include <alphatest_pars_fragment>\n#include <aomap_pars_fragment>\n#include <lightmap_pars_fragment>\n#include <emissivemap_pars_fragment>\n#include <bsdfs>\n#include <iridescence_fragment>\n#include <cube_uv_reflection_fragment>\n#include <envmap_common_pars_fragment>\n#include <envmap_physical_pars_fragment>\n#include <fog_pars_fragment>\n#include <lights_pars_begin>\n#include <normal_pars_fragment>\n#include <lights_physical_pars_fragment>\n#include <transmission_pars_fragment>\n#include <shadowmap_pars_fragment>\n#include <bumpmap_pars_fragment>\n#include <normalmap_pars_fragment>\n#include <clearcoat_pars_fragment>\n#include <iridescence_pars_fragment>\n#include <roughnessmap_pars_fragment>\n#include <metalnessmap_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\tReflectedLight reflectedLight = ReflectedLight( vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ) );\n\tvec3 totalEmissiveRadiance = emissive;\n\t#include <logdepthbuf_fragment>\n\t#include <map_fragment>\n\t#include <color_fragment>\n\t#include <alphamap_fragment>\n\t#include <alphatest_fragment>\n\t#include <roughnessmap_fragment>\n\t#include <metalnessmap_fragment>\n\t#include <normal_fragment_begin>\n\t#include <normal_fragment_maps>\n\t#include <clearcoat_normal_fragment_begin>\n\t#include <clearcoat_normal_fragment_maps>\n\t#include <emissivemap_fragment>\n\t#include <lights_physical_fragment>\n\t#include <lights_fragment_begin>\n\t#include <lights_fragment_maps>\n\t#include <lights_fragment_end>\n\t#include <aomap_fragment>\n\tvec3 totalDiffuse = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse;\n\tvec3 totalSpecular = reflectedLight.directSpecular + reflectedLight.indirectSpecular;\n\t#include <transmission_fragment>\n\tvec3 outgoingLight = totalDiffuse + totalSpecular + totalEmissiveRadiance;\n\t#ifdef USE_SHEEN\n\t\tfloat sheenEnergyComp = 1.0 - 0.157 * max3( material.sheenColor );\n\t\toutgoingLight = outgoingLight * sheenEnergyComp + sheenSpecular;\n\t#endif\n\t#ifdef USE_CLEARCOAT\n\t\tfloat dotNVcc = saturate( dot( geometry.clearcoatNormal, geometry.viewDir ) );\n\t\tvec3 Fcc = F_Schlick( material.clearcoatF0, material.clearcoatF90, dotNVcc );\n\t\toutgoingLight = outgoingLight * ( 1.0 - material.clearcoat * Fcc ) + clearcoatSpecular * material.clearcoat;\n\t#endif\n\t#include <output_fragment>\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n\t#include <premultiplied_alpha_fragment>\n\t#include <dithering_fragment>\n}";
 
-const vertex$5 = "#define STANDARD\nvarying vec3 vViewPosition;\n#ifdef USE_TRANSMISSION\n\tvarying vec3 vWorldPosition;\n#endif\n#include <common>\n#include <uv_pars_vertex>\n#include <uv2_pars_vertex>\n#include <displacementmap_pars_vertex>\n#include <color_pars_vertex>\n#include <fog_pars_vertex>\n#include <normal_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <shadowmap_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\t#include <uv2_vertex>\n\t#include <color_vertex>\n\t#include <morphcolor_vertex>\n\t#include <beginnormal_vertex>\n\t#include <morphnormal_vertex>\n\t#include <skinbase_vertex>\n\t#include <skinnormal_vertex>\n\t#include <defaultnormal_vertex>\n\t#include <normal_vertex>\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <displacementmap_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\tvViewPosition = - mvPosition.xyz;\n\t#include <worldpos_vertex>\n\t#include <shadowmap_vertex>\n\t#include <fog_vertex>\n#ifdef USE_TRANSMISSION\n\tvWorldPosition = worldPosition.xyz;\n#endif\n}";
-const fragment$5 = "#define STANDARD\n#ifdef PHYSICAL\n\t#define IOR\n\t#define SPECULAR\n#endif\nuniform vec3 diffuse;\nuniform vec3 emissive;\nuniform float roughness;\nuniform float metalness;\nuniform float opacity;\n#ifdef IOR\n\tuniform float ior;\n#endif\n#ifdef SPECULAR\n\tuniform float specularIntensity;\n\tuniform vec3 specularColor;\n\t#ifdef USE_SPECULARINTENSITYMAP\n\t\tuniform sampler2D specularIntensityMap;\n\t#endif\n\t#ifdef USE_SPECULARCOLORMAP\n\t\tuniform sampler2D specularColorMap;\n\t#endif\n#endif\n#ifdef USE_CLEARCOAT\n\tuniform float clearcoat;\n\tuniform float clearcoatRoughness;\n#endif\n#ifdef USE_IRIDESCENCE\n\tuniform float iridescence;\n\tuniform float iridescenceIOR;\n\tuniform float iridescenceThicknessMinimum;\n\tuniform float iridescenceThicknessMaximum;\n#endif\n#ifdef USE_SHEEN\n\tuniform vec3 sheenColor;\n\tuniform float sheenRoughness;\n\t#ifdef USE_SHEENCOLORMAP\n\t\tuniform sampler2D sheenColorMap;\n\t#endif\n\t#ifdef USE_SHEENROUGHNESSMAP\n\t\tuniform sampler2D sheenRoughnessMap;\n\t#endif\n#endif\nvarying vec3 vViewPosition;\n#include <common>\n#include <packing>\n#include <dithering_pars_fragment>\n#include <color_pars_fragment>\n#include <uv_pars_fragment>\n#include <uv2_pars_fragment>\n#include <map_pars_fragment>\n#include <alphamap_pars_fragment>\n#include <alphatest_pars_fragment>\n#include <aomap_pars_fragment>\n#include <lightmap_pars_fragment>\n#include <emissivemap_pars_fragment>\n#include <bsdfs>\n#include <iridescence_fragment>\n#include <cube_uv_reflection_fragment>\n#include <envmap_common_pars_fragment>\n#include <envmap_physical_pars_fragment>\n#include <fog_pars_fragment>\n#include <lights_pars_begin>\n#include <normal_pars_fragment>\n#include <lights_physical_pars_fragment>\n#include <transmission_pars_fragment>\n#include <shadowmap_pars_fragment>\n#include <bumpmap_pars_fragment>\n#include <normalmap_pars_fragment>\n#include <clearcoat_pars_fragment>\n#include <iridescence_pars_fragment>\n#include <roughnessmap_pars_fragment>\n#include <metalnessmap_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\tReflectedLight reflectedLight = ReflectedLight( vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ) );\n\tvec3 totalEmissiveRadiance = emissive;\n\t#include <logdepthbuf_fragment>\n\t#include <map_fragment>\n\t#include <color_fragment>\n\t#include <alphamap_fragment>\n\t#include <alphatest_fragment>\n\t#include <roughnessmap_fragment>\n\t#include <metalnessmap_fragment>\n\t#include <normal_fragment_begin>\n\t#include <normal_fragment_maps>\n\t#include <clearcoat_normal_fragment_begin>\n\t#include <clearcoat_normal_fragment_maps>\n\t#include <emissivemap_fragment>\n\t#include <lights_physical_fragment>\n\t#include <lights_fragment_begin>\n\t#include <lights_fragment_maps>\n\t#include <lights_fragment_end>\n\t#include <aomap_fragment>\n\tvec3 totalDiffuse = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse;\n\tvec3 totalSpecular = reflectedLight.directSpecular + reflectedLight.indirectSpecular;\n\t#include <transmission_fragment>\n\tvec3 outgoingLight = totalDiffuse + totalSpecular + totalEmissiveRadiance;\n\t#ifdef USE_SHEEN\n\t\tfloat sheenEnergyComp = 1.0 - 0.157 * max3( material.sheenColor );\n\t\toutgoingLight = outgoingLight * sheenEnergyComp + sheenSpecular;\n\t#endif\n\t#ifdef USE_CLEARCOAT\n\t\tfloat dotNVcc = saturate( dot( geometry.clearcoatNormal, geometry.viewDir ) );\n\t\tvec3 Fcc = F_Schlick( material.clearcoatF0, material.clearcoatF90, dotNVcc );\n\t\toutgoingLight = outgoingLight * ( 1.0 - material.clearcoat * Fcc ) + clearcoatSpecular * material.clearcoat;\n\t#endif\n\t#include <output_fragment>\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n\t#include <premultiplied_alpha_fragment>\n\t#include <dithering_fragment>\n}";
+const vertex$5 = "#define TOON\nvarying vec3 vViewPosition;\n#include <common>\n#include <uv_pars_vertex>\n#include <uv2_pars_vertex>\n#include <displacementmap_pars_vertex>\n#include <color_pars_vertex>\n#include <fog_pars_vertex>\n#include <normal_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <shadowmap_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\t#include <uv2_vertex>\n\t#include <color_vertex>\n\t#include <morphcolor_vertex>\n\t#include <beginnormal_vertex>\n\t#include <morphnormal_vertex>\n\t#include <skinbase_vertex>\n\t#include <skinnormal_vertex>\n\t#include <defaultnormal_vertex>\n\t#include <normal_vertex>\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <displacementmap_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\tvViewPosition = - mvPosition.xyz;\n\t#include <worldpos_vertex>\n\t#include <shadowmap_vertex>\n\t#include <fog_vertex>\n}";
+const fragment$5 = "#define TOON\nuniform vec3 diffuse;\nuniform vec3 emissive;\nuniform float opacity;\n#include <common>\n#include <packing>\n#include <dithering_pars_fragment>\n#include <color_pars_fragment>\n#include <uv_pars_fragment>\n#include <uv2_pars_fragment>\n#include <map_pars_fragment>\n#include <alphamap_pars_fragment>\n#include <alphatest_pars_fragment>\n#include <aomap_pars_fragment>\n#include <lightmap_pars_fragment>\n#include <emissivemap_pars_fragment>\n#include <gradientmap_pars_fragment>\n#include <fog_pars_fragment>\n#include <bsdfs>\n#include <lights_pars_begin>\n#include <normal_pars_fragment>\n#include <lights_toon_pars_fragment>\n#include <shadowmap_pars_fragment>\n#include <bumpmap_pars_fragment>\n#include <normalmap_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\tReflectedLight reflectedLight = ReflectedLight( vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ) );\n\tvec3 totalEmissiveRadiance = emissive;\n\t#include <logdepthbuf_fragment>\n\t#include <map_fragment>\n\t#include <color_fragment>\n\t#include <alphamap_fragment>\n\t#include <alphatest_fragment>\n\t#include <normal_fragment_begin>\n\t#include <normal_fragment_maps>\n\t#include <emissivemap_fragment>\n\t#include <lights_toon_fragment>\n\t#include <lights_fragment_begin>\n\t#include <lights_fragment_maps>\n\t#include <lights_fragment_end>\n\t#include <aomap_fragment>\n\tvec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + totalEmissiveRadiance;\n\t#include <output_fragment>\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n\t#include <premultiplied_alpha_fragment>\n\t#include <dithering_fragment>\n}";
 
-const vertex$4 = "#define TOON\nvarying vec3 vViewPosition;\n#include <common>\n#include <uv_pars_vertex>\n#include <uv2_pars_vertex>\n#include <displacementmap_pars_vertex>\n#include <color_pars_vertex>\n#include <fog_pars_vertex>\n#include <normal_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <shadowmap_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\t#include <uv2_vertex>\n\t#include <color_vertex>\n\t#include <morphcolor_vertex>\n\t#include <beginnormal_vertex>\n\t#include <morphnormal_vertex>\n\t#include <skinbase_vertex>\n\t#include <skinnormal_vertex>\n\t#include <defaultnormal_vertex>\n\t#include <normal_vertex>\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <displacementmap_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\tvViewPosition = - mvPosition.xyz;\n\t#include <worldpos_vertex>\n\t#include <shadowmap_vertex>\n\t#include <fog_vertex>\n}";
-const fragment$4 = "#define TOON\nuniform vec3 diffuse;\nuniform vec3 emissive;\nuniform float opacity;\n#include <common>\n#include <packing>\n#include <dithering_pars_fragment>\n#include <color_pars_fragment>\n#include <uv_pars_fragment>\n#include <uv2_pars_fragment>\n#include <map_pars_fragment>\n#include <alphamap_pars_fragment>\n#include <alphatest_pars_fragment>\n#include <aomap_pars_fragment>\n#include <lightmap_pars_fragment>\n#include <emissivemap_pars_fragment>\n#include <gradientmap_pars_fragment>\n#include <fog_pars_fragment>\n#include <bsdfs>\n#include <lights_pars_begin>\n#include <normal_pars_fragment>\n#include <lights_toon_pars_fragment>\n#include <shadowmap_pars_fragment>\n#include <bumpmap_pars_fragment>\n#include <normalmap_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\tReflectedLight reflectedLight = ReflectedLight( vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ) );\n\tvec3 totalEmissiveRadiance = emissive;\n\t#include <logdepthbuf_fragment>\n\t#include <map_fragment>\n\t#include <color_fragment>\n\t#include <alphamap_fragment>\n\t#include <alphatest_fragment>\n\t#include <normal_fragment_begin>\n\t#include <normal_fragment_maps>\n\t#include <emissivemap_fragment>\n\t#include <lights_toon_fragment>\n\t#include <lights_fragment_begin>\n\t#include <lights_fragment_maps>\n\t#include <lights_fragment_end>\n\t#include <aomap_fragment>\n\tvec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + totalEmissiveRadiance;\n\t#include <output_fragment>\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n\t#include <premultiplied_alpha_fragment>\n\t#include <dithering_fragment>\n}";
+const vertex$4 = "uniform float size;\nuniform float scale;\n#include <common>\n#include <color_pars_vertex>\n#include <fog_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <color_vertex>\n\t#include <morphcolor_vertex>\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <project_vertex>\n\tgl_PointSize = size;\n\t#ifdef USE_SIZEATTENUATION\n\t\tbool isPerspective = isPerspectiveMatrix( projectionMatrix );\n\t\tif ( isPerspective ) gl_PointSize *= ( scale / - mvPosition.z );\n\t#endif\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\t#include <worldpos_vertex>\n\t#include <fog_vertex>\n}";
+const fragment$4 = "uniform vec3 diffuse;\nuniform float opacity;\n#include <common>\n#include <color_pars_fragment>\n#include <map_particle_pars_fragment>\n#include <alphatest_pars_fragment>\n#include <fog_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec3 outgoingLight = vec3( 0.0 );\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\t#include <logdepthbuf_fragment>\n\t#include <map_particle_fragment>\n\t#include <color_fragment>\n\t#include <alphatest_fragment>\n\toutgoingLight = diffuseColor.rgb;\n\t#include <output_fragment>\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n\t#include <premultiplied_alpha_fragment>\n}";
 
-const vertex$3 = "uniform float size;\nuniform float scale;\n#include <common>\n#include <color_pars_vertex>\n#include <fog_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <color_vertex>\n\t#include <morphcolor_vertex>\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <project_vertex>\n\tgl_PointSize = size;\n\t#ifdef USE_SIZEATTENUATION\n\t\tbool isPerspective = isPerspectiveMatrix( projectionMatrix );\n\t\tif ( isPerspective ) gl_PointSize *= ( scale / - mvPosition.z );\n\t#endif\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\t#include <worldpos_vertex>\n\t#include <fog_vertex>\n}";
-const fragment$3 = "uniform vec3 diffuse;\nuniform float opacity;\n#include <common>\n#include <color_pars_fragment>\n#include <map_particle_pars_fragment>\n#include <alphatest_pars_fragment>\n#include <fog_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec3 outgoingLight = vec3( 0.0 );\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\t#include <logdepthbuf_fragment>\n\t#include <map_particle_fragment>\n\t#include <color_fragment>\n\t#include <alphatest_fragment>\n\toutgoingLight = diffuseColor.rgb;\n\t#include <output_fragment>\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n\t#include <premultiplied_alpha_fragment>\n}";
+const vertex$3 = "#include <common>\n#include <fog_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <shadowmap_pars_vertex>\nvoid main() {\n\t#include <beginnormal_vertex>\n\t#include <morphnormal_vertex>\n\t#include <skinbase_vertex>\n\t#include <skinnormal_vertex>\n\t#include <defaultnormal_vertex>\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <project_vertex>\n\t#include <worldpos_vertex>\n\t#include <shadowmap_vertex>\n\t#include <fog_vertex>\n}";
+const fragment$3 = "uniform vec3 color;\nuniform float opacity;\n#include <common>\n#include <packing>\n#include <fog_pars_fragment>\n#include <bsdfs>\n#include <lights_pars_begin>\n#include <shadowmap_pars_fragment>\n#include <shadowmask_pars_fragment>\nvoid main() {\n\tgl_FragColor = vec4( color, opacity * ( 1.0 - getShadowMask() ) );\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n}";
 
-const vertex$2 = "#include <common>\n#include <fog_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <shadowmap_pars_vertex>\nvoid main() {\n\t#include <beginnormal_vertex>\n\t#include <morphnormal_vertex>\n\t#include <skinbase_vertex>\n\t#include <skinnormal_vertex>\n\t#include <defaultnormal_vertex>\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <project_vertex>\n\t#include <worldpos_vertex>\n\t#include <shadowmap_vertex>\n\t#include <fog_vertex>\n}";
-const fragment$2 = "uniform vec3 color;\nuniform float opacity;\n#include <common>\n#include <packing>\n#include <fog_pars_fragment>\n#include <bsdfs>\n#include <lights_pars_begin>\n#include <shadowmap_pars_fragment>\n#include <shadowmask_pars_fragment>\nvoid main() {\n\tgl_FragColor = vec4( color, opacity * ( 1.0 - getShadowMask() ) );\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n}";
+const vertex$2 = "uniform float rotation;\nuniform vec2 center;\n#include <common>\n#include <uv_pars_vertex>\n#include <fog_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\tvec4 mvPosition = modelViewMatrix * vec4( 0.0, 0.0, 0.0, 1.0 );\n\tvec2 scale;\n\tscale.x = length( vec3( modelMatrix[ 0 ].x, modelMatrix[ 0 ].y, modelMatrix[ 0 ].z ) );\n\tscale.y = length( vec3( modelMatrix[ 1 ].x, modelMatrix[ 1 ].y, modelMatrix[ 1 ].z ) );\n\t#ifndef USE_SIZEATTENUATION\n\t\tbool isPerspective = isPerspectiveMatrix( projectionMatrix );\n\t\tif ( isPerspective ) scale *= - mvPosition.z;\n\t#endif\n\tvec2 alignedPosition = ( position.xy - ( center - vec2( 0.5 ) ) ) * scale;\n\tvec2 rotatedPosition;\n\trotatedPosition.x = cos( rotation ) * alignedPosition.x - sin( rotation ) * alignedPosition.y;\n\trotatedPosition.y = sin( rotation ) * alignedPosition.x + cos( rotation ) * alignedPosition.y;\n\tmvPosition.xy += rotatedPosition;\n\tgl_Position = projectionMatrix * mvPosition;\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\t#include <fog_vertex>\n}";
+const fragment$2 = "uniform vec3 diffuse;\nuniform float opacity;\n#include <common>\n#include <uv_pars_fragment>\n#include <map_pars_fragment>\n#include <alphamap_pars_fragment>\n#include <alphatest_pars_fragment>\n#include <fog_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec3 outgoingLight = vec3( 0.0 );\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\t#include <logdepthbuf_fragment>\n\t#include <map_fragment>\n\t#include <alphamap_fragment>\n\t#include <alphatest_fragment>\n\toutgoingLight = diffuseColor.rgb;\n\t#include <output_fragment>\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n}";
 
-const vertex$1 = "uniform float rotation;\nuniform vec2 center;\n#include <common>\n#include <uv_pars_vertex>\n#include <fog_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\tvec4 mvPosition = modelViewMatrix * vec4( 0.0, 0.0, 0.0, 1.0 );\n\tvec2 scale;\n\tscale.x = length( vec3( modelMatrix[ 0 ].x, modelMatrix[ 0 ].y, modelMatrix[ 0 ].z ) );\n\tscale.y = length( vec3( modelMatrix[ 1 ].x, modelMatrix[ 1 ].y, modelMatrix[ 1 ].z ) );\n\t#ifndef USE_SIZEATTENUATION\n\t\tbool isPerspective = isPerspectiveMatrix( projectionMatrix );\n\t\tif ( isPerspective ) scale *= - mvPosition.z;\n\t#endif\n\tvec2 alignedPosition = ( position.xy - ( center - vec2( 0.5 ) ) ) * scale;\n\tvec2 rotatedPosition;\n\trotatedPosition.x = cos( rotation ) * alignedPosition.x - sin( rotation ) * alignedPosition.y;\n\trotatedPosition.y = sin( rotation ) * alignedPosition.x + cos( rotation ) * alignedPosition.y;\n\tmvPosition.xy += rotatedPosition;\n\tgl_Position = projectionMatrix * mvPosition;\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\t#include <fog_vertex>\n}";
-const fragment$1 = "uniform vec3 diffuse;\nuniform float opacity;\n#include <common>\n#include <uv_pars_fragment>\n#include <map_pars_fragment>\n#include <alphamap_pars_fragment>\n#include <alphatest_pars_fragment>\n#include <fog_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec3 outgoingLight = vec3( 0.0 );\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\t#include <logdepthbuf_fragment>\n\t#include <map_fragment>\n\t#include <alphamap_fragment>\n\t#include <alphatest_fragment>\n\toutgoingLight = diffuseColor.rgb;\n\t#include <output_fragment>\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n}";
+const vertex$1 = "uniform mat4 previousViewMatrices[2];\nuniform mat4 previousModelMatrix;\n#ifdef USE_INSTANCING\nattribute mat4 previousInstanceMatrix;\n#endif\n#define previousViewMatrix previousViewMatrices[VIEW_ID]\nvarying vec4 clipPositionCurrent;\nvarying vec4 clipPositionPrevious;\n#include <common>\nvoid main() {\n\t#include <velocity_vertex>\n}";
+const fragment$1 = "void main() {\n\thighp vec4 motionVector = (clipPositionCurrent / clipPositionCurrent.w - clipPositionPrevious / clipPositionPrevious.w );\n\tgl_FragColor = motionVector;\n}";
 
 const ShaderChunk = {
 	alphamap_fragment: alphamap_fragment,
@@ -8783,6 +8791,7 @@ const ShaderChunk = {
 	packing: packing,
 	premultiplied_alpha_fragment: premultiplied_alpha_fragment,
 	project_vertex: project_vertex,
+	velocity_vertex: velocity_vertex,
 	dithering_fragment: dithering_fragment,
 	dithering_pars_fragment: dithering_pars_fragment,
 	roughnessmap_fragment: roughnessmap_fragment,
@@ -8808,40 +8817,42 @@ const ShaderChunk = {
 	uv2_pars_vertex: uv2_pars_vertex,
 	uv2_vertex: uv2_vertex,
 	worldpos_vertex: worldpos_vertex,
-	background_vert: vertex$h,
-	background_frag: fragment$h,
-	backgroundCube_vert: vertex$g,
-	backgroundCube_frag: fragment$g,
-	cube_vert: vertex$f,
-	cube_frag: fragment$f,
-	depth_vert: vertex$e,
-	depth_frag: fragment$e,
-	distanceRGBA_vert: vertex$d,
-	distanceRGBA_frag: fragment$d,
-	equirect_vert: vertex$c,
-	equirect_frag: fragment$c,
-	linedashed_vert: vertex$b,
-	linedashed_frag: fragment$b,
-	meshbasic_vert: vertex$a,
-	meshbasic_frag: fragment$a,
-	meshlambert_vert: vertex$9,
-	meshlambert_frag: fragment$9,
-	meshmatcap_vert: vertex$8,
-	meshmatcap_frag: fragment$8,
-	meshnormal_vert: vertex$7,
-	meshnormal_frag: fragment$7,
-	meshphong_vert: vertex$6,
-	meshphong_frag: fragment$6,
-	meshphysical_vert: vertex$5,
-	meshphysical_frag: fragment$5,
-	meshtoon_vert: vertex$4,
-	meshtoon_frag: fragment$4,
-	points_vert: vertex$3,
-	points_frag: fragment$3,
-	shadow_vert: vertex$2,
-	shadow_frag: fragment$2,
-	sprite_vert: vertex$1,
-	sprite_frag: fragment$1
+	background_vert: vertex$i,
+	background_frag: fragment$i,
+	backgroundCube_vert: vertex$h,
+	backgroundCube_frag: fragment$h,
+	cube_vert: vertex$g,
+	cube_frag: fragment$g,
+	depth_vert: vertex$f,
+	depth_frag: fragment$f,
+	distanceRGBA_vert: vertex$e,
+	distanceRGBA_frag: fragment$e,
+	equirect_vert: vertex$d,
+	equirect_frag: fragment$d,
+	linedashed_vert: vertex$c,
+	linedashed_frag: fragment$c,
+	meshbasic_vert: vertex$b,
+	meshbasic_frag: fragment$b,
+	meshlambert_vert: vertex$a,
+	meshlambert_frag: fragment$a,
+	meshmatcap_vert: vertex$9,
+	meshmatcap_frag: fragment$9,
+	meshnormal_vert: vertex$8,
+	meshnormal_frag: fragment$8,
+	meshphong_vert: vertex$7,
+	meshphong_frag: fragment$7,
+	meshphysical_vert: vertex$6,
+	meshphysical_frag: fragment$6,
+	meshtoon_vert: vertex$5,
+	meshtoon_frag: fragment$5,
+	points_vert: vertex$4,
+	points_frag: fragment$4,
+	shadow_vert: vertex$3,
+	shadow_frag: fragment$3,
+	sprite_vert: vertex$2,
+	sprite_frag: fragment$2,
+	velocity_vert: vertex$1,
+	velocity_frag: fragment$1
 };
 
 /**
@@ -9327,6 +9338,18 @@ const ShaderLib = {
 		}]),
 		vertexShader: ShaderChunk.shadow_vert,
 		fragmentShader: ShaderChunk.shadow_frag
+	},
+	velocity: {
+		uniforms: /*@__PURE__*/mergeUniforms([UniformsLib.common, {
+			previousModelMatrix: {
+				value: new Matrix4()
+			},
+			previousViewMatrices: {
+				value: [new Matrix4(), new Matrix4()]
+			}
+		}]),
+		vertexShader: ShaderChunk.velocity_vert,
+		fragmentShader: ShaderChunk.velocity_frag
 	}
 };
 ShaderLib.physical = {
@@ -9463,7 +9486,7 @@ function WebGLBackground(renderer, cubemaps, cubeuvmaps, state, objects, alpha, 
 		}
 		if (background && (background.isCubeTexture || background.mapping === CubeUVReflectionMapping)) {
 			if (boxMesh === undefined) {
-				boxMesh = new Mesh(new BoxGeometry(1, 1, 1), new ShaderMaterial({
+				boxMesh = new Mesh(new BoxGeometry(10000, 10000, 10000), new ShaderMaterial({
 					name: 'BackgroundCubeMaterial',
 					uniforms: cloneUniforms(ShaderLib.backgroundCube.uniforms),
 					vertexShader: ShaderLib.backgroundCube.vertexShader,
@@ -9671,6 +9694,7 @@ function WebGLBindingStates(gl, extensions, attributes, capabilities) {
 				if (geometryAttribute === undefined) {
 					if (name === 'instanceMatrix' && object.instanceMatrix) geometryAttribute = object.instanceMatrix;
 					if (name === 'instanceColor' && object.instanceColor) geometryAttribute = object.instanceColor;
+					if (name === 'previousInstanceMatrix' && object.previousInstanceMatrix) geometryAttribute = object.previousInstanceMatrix;
 				}
 				if (cachedAttribute === undefined) return true;
 				if (cachedAttribute.attribute !== geometryAttribute) return true;
@@ -9694,6 +9718,7 @@ function WebGLBindingStates(gl, extensions, attributes, capabilities) {
 				if (attribute === undefined) {
 					if (name === 'instanceMatrix' && object.instanceMatrix) attribute = object.instanceMatrix;
 					if (name === 'instanceColor' && object.instanceColor) attribute = object.instanceColor;
+					if (name === 'previousInstanceMatrix' && object.previousInstanceMatrix) attribute = object.previousInstanceMatrix;
 				}
 				const data = {};
 				data.attribute = attribute;
@@ -9764,6 +9789,7 @@ function WebGLBindingStates(gl, extensions, attributes, capabilities) {
 				if (geometryAttribute === undefined) {
 					if (name === 'instanceMatrix' && object.instanceMatrix) geometryAttribute = object.instanceMatrix;
 					if (name === 'instanceColor' && object.instanceColor) geometryAttribute = object.instanceColor;
+					if (name === 'previousInstanceMatrix' && object.previousInstanceMatrix) geometryAttribute = object.previousInstanceMatrix;
 				}
 				if (geometryAttribute !== undefined) {
 					const normalized = geometryAttribute.normalized;
@@ -11423,6 +11449,9 @@ function WebGLObjects(gl, geometries, attributes, info) {
 			if (object.instanceColor !== null) {
 				attributes.update(object.instanceColor, gl.ARRAY_BUFFER);
 			}
+			if (object.previousInstanceMatrix !== null) {
+				attributes.update(object.previousInstanceMatrix, gl.ARRAY_BUFFER);
+			}
 		}
 		return buffergeometry;
 	}
@@ -12485,6 +12514,7 @@ function WebGLProgram(renderer, cacheKey, parameters, bindingStates) {
 	const program = gl.createProgram();
 	let prefixVertex, prefixFragment;
 	let versionString = parameters.glslVersion ? '#version ' + parameters.glslVersion + '\n' : '';
+	var numMultiviewViews = parameters.numMultiviewViews;
 	if (parameters.isRawShaderMaterial) {
 		prefixVertex = [customDefines].filter(filterEmptyLine).join('\n');
 		if (prefixVertex.length > 0) {
@@ -12496,7 +12526,7 @@ function WebGLProgram(renderer, cacheKey, parameters, bindingStates) {
 		}
 	} else {
 		prefixVertex = [generatePrecision(parameters), '#define SHADER_NAME ' + parameters.shaderName, customDefines, parameters.instancing ? '#define USE_INSTANCING' : '', parameters.instancingColor ? '#define USE_INSTANCING_COLOR' : '', parameters.supportsVertexTextures ? '#define VERTEX_TEXTURES' : '', parameters.useFog && parameters.fog ? '#define USE_FOG' : '', parameters.useFog && parameters.fogExp2 ? '#define FOG_EXP2' : '', parameters.map ? '#define USE_MAP' : '', parameters.envMap ? '#define USE_ENVMAP' : '', parameters.envMap ? '#define ' + envMapModeDefine : '', parameters.lightMap ? '#define USE_LIGHTMAP' : '', parameters.aoMap ? '#define USE_AOMAP' : '', parameters.emissiveMap ? '#define USE_EMISSIVEMAP' : '', parameters.bumpMap ? '#define USE_BUMPMAP' : '', parameters.normalMap ? '#define USE_NORMALMAP' : '', parameters.normalMap && parameters.objectSpaceNormalMap ? '#define OBJECTSPACE_NORMALMAP' : '', parameters.normalMap && parameters.tangentSpaceNormalMap ? '#define TANGENTSPACE_NORMALMAP' : '', parameters.clearcoatMap ? '#define USE_CLEARCOATMAP' : '', parameters.clearcoatRoughnessMap ? '#define USE_CLEARCOAT_ROUGHNESSMAP' : '', parameters.clearcoatNormalMap ? '#define USE_CLEARCOAT_NORMALMAP' : '', parameters.iridescenceMap ? '#define USE_IRIDESCENCEMAP' : '', parameters.iridescenceThicknessMap ? '#define USE_IRIDESCENCE_THICKNESSMAP' : '', parameters.displacementMap && parameters.supportsVertexTextures ? '#define USE_DISPLACEMENTMAP' : '', parameters.specularMap ? '#define USE_SPECULARMAP' : '', parameters.specularIntensityMap ? '#define USE_SPECULARINTENSITYMAP' : '', parameters.specularColorMap ? '#define USE_SPECULARCOLORMAP' : '', parameters.roughnessMap ? '#define USE_ROUGHNESSMAP' : '', parameters.metalnessMap ? '#define USE_METALNESSMAP' : '', parameters.alphaMap ? '#define USE_ALPHAMAP' : '', parameters.transmission ? '#define USE_TRANSMISSION' : '', parameters.transmissionMap ? '#define USE_TRANSMISSIONMAP' : '', parameters.thicknessMap ? '#define USE_THICKNESSMAP' : '', parameters.sheenColorMap ? '#define USE_SHEENCOLORMAP' : '', parameters.sheenRoughnessMap ? '#define USE_SHEENROUGHNESSMAP' : '', parameters.vertexTangents ? '#define USE_TANGENT' : '', parameters.vertexColors ? '#define USE_COLOR' : '', parameters.vertexAlphas ? '#define USE_COLOR_ALPHA' : '', parameters.vertexUvs ? '#define USE_UV' : '', parameters.uvsVertexOnly ? '#define UVS_VERTEX_ONLY' : '', parameters.flatShading ? '#define FLAT_SHADED' : '', parameters.skinning ? '#define USE_SKINNING' : '', parameters.morphTargets ? '#define USE_MORPHTARGETS' : '', parameters.morphNormals && parameters.flatShading === false ? '#define USE_MORPHNORMALS' : '', parameters.morphColors && parameters.isWebGL2 ? '#define USE_MORPHCOLORS' : '', parameters.morphTargetsCount > 0 && parameters.isWebGL2 ? '#define MORPHTARGETS_TEXTURE' : '', parameters.morphTargetsCount > 0 && parameters.isWebGL2 ? '#define MORPHTARGETS_TEXTURE_STRIDE ' + parameters.morphTextureStride : '', parameters.morphTargetsCount > 0 && parameters.isWebGL2 ? '#define MORPHTARGETS_COUNT ' + parameters.morphTargetsCount : '', parameters.doubleSided ? '#define DOUBLE_SIDED' : '', parameters.flipSided ? '#define FLIP_SIDED' : '', parameters.shadowMapEnabled ? '#define USE_SHADOWMAP' : '', parameters.shadowMapEnabled ? '#define ' + shadowMapTypeDefine : '', parameters.sizeAttenuation ? '#define USE_SIZEATTENUATION' : '', parameters.logarithmicDepthBuffer ? '#define USE_LOGDEPTHBUF' : '', parameters.logarithmicDepthBuffer && parameters.rendererExtensionFragDepth ? '#define USE_LOGDEPTHBUF_EXT' : '', 'uniform mat4 modelMatrix;', 'uniform mat4 modelViewMatrix;', 'uniform mat4 projectionMatrix;', 'uniform mat4 viewMatrix;', 'uniform mat3 normalMatrix;', 'uniform vec3 cameraPosition;', 'uniform bool isOrthographic;', '#ifdef USE_INSTANCING', '	attribute mat4 instanceMatrix;', '#endif', '#ifdef USE_INSTANCING_COLOR', '	attribute vec3 instanceColor;', '#endif', 'attribute vec3 position;', 'attribute vec3 normal;', 'attribute vec2 uv;', '#ifdef USE_TANGENT', '	attribute vec4 tangent;', '#endif', '#if defined( USE_COLOR_ALPHA )', '	attribute vec4 color;', '#elif defined( USE_COLOR )', '	attribute vec3 color;', '#endif', '#if ( defined( USE_MORPHTARGETS ) && ! defined( MORPHTARGETS_TEXTURE ) )', '	attribute vec3 morphTarget0;', '	attribute vec3 morphTarget1;', '	attribute vec3 morphTarget2;', '	attribute vec3 morphTarget3;', '	#ifdef USE_MORPHNORMALS', '		attribute vec3 morphNormal0;', '		attribute vec3 morphNormal1;', '		attribute vec3 morphNormal2;', '		attribute vec3 morphNormal3;', '	#else', '		attribute vec3 morphTarget4;', '		attribute vec3 morphTarget5;', '		attribute vec3 morphTarget6;', '		attribute vec3 morphTarget7;', '	#endif', '#endif', '#ifdef USE_SKINNING', '	attribute vec4 skinIndex;', '	attribute vec4 skinWeight;', '#endif', '\n'].filter(filterEmptyLine).join('\n');
-		prefixFragment = [customExtensions, generatePrecision(parameters), '#define SHADER_NAME ' + parameters.shaderName, customDefines, parameters.useFog && parameters.fog ? '#define USE_FOG' : '', parameters.useFog && parameters.fogExp2 ? '#define FOG_EXP2' : '', parameters.map ? '#define USE_MAP' : '', parameters.matcap ? '#define USE_MATCAP' : '', parameters.envMap ? '#define USE_ENVMAP' : '', parameters.envMap ? '#define ' + envMapTypeDefine : '', parameters.envMap ? '#define ' + envMapModeDefine : '', parameters.envMap ? '#define ' + envMapBlendingDefine : '', envMapCubeUVSize ? '#define CUBEUV_TEXEL_WIDTH ' + envMapCubeUVSize.texelWidth : '', envMapCubeUVSize ? '#define CUBEUV_TEXEL_HEIGHT ' + envMapCubeUVSize.texelHeight : '', envMapCubeUVSize ? '#define CUBEUV_MAX_MIP ' + envMapCubeUVSize.maxMip + '.0' : '', parameters.lightMap ? '#define USE_LIGHTMAP' : '', parameters.aoMap ? '#define USE_AOMAP' : '', parameters.emissiveMap ? '#define USE_EMISSIVEMAP' : '', parameters.bumpMap ? '#define USE_BUMPMAP' : '', parameters.normalMap ? '#define USE_NORMALMAP' : '', parameters.normalMap && parameters.objectSpaceNormalMap ? '#define OBJECTSPACE_NORMALMAP' : '', parameters.normalMap && parameters.tangentSpaceNormalMap ? '#define TANGENTSPACE_NORMALMAP' : '', parameters.clearcoat ? '#define USE_CLEARCOAT' : '', parameters.clearcoatMap ? '#define USE_CLEARCOATMAP' : '', parameters.clearcoatRoughnessMap ? '#define USE_CLEARCOAT_ROUGHNESSMAP' : '', parameters.clearcoatNormalMap ? '#define USE_CLEARCOAT_NORMALMAP' : '', parameters.iridescence ? '#define USE_IRIDESCENCE' : '', parameters.iridescenceMap ? '#define USE_IRIDESCENCEMAP' : '', parameters.iridescenceThicknessMap ? '#define USE_IRIDESCENCE_THICKNESSMAP' : '', parameters.specularMap ? '#define USE_SPECULARMAP' : '', parameters.specularIntensityMap ? '#define USE_SPECULARINTENSITYMAP' : '', parameters.specularColorMap ? '#define USE_SPECULARCOLORMAP' : '', parameters.roughnessMap ? '#define USE_ROUGHNESSMAP' : '', parameters.metalnessMap ? '#define USE_METALNESSMAP' : '', parameters.alphaMap ? '#define USE_ALPHAMAP' : '', parameters.alphaTest ? '#define USE_ALPHATEST' : '', parameters.sheen ? '#define USE_SHEEN' : '', parameters.sheenColorMap ? '#define USE_SHEENCOLORMAP' : '', parameters.sheenRoughnessMap ? '#define USE_SHEENROUGHNESSMAP' : '', parameters.transmission ? '#define USE_TRANSMISSION' : '', parameters.transmissionMap ? '#define USE_TRANSMISSIONMAP' : '', parameters.thicknessMap ? '#define USE_THICKNESSMAP' : '', parameters.decodeVideoTexture ? '#define DECODE_VIDEO_TEXTURE' : '', parameters.vertexTangents ? '#define USE_TANGENT' : '', parameters.vertexColors || parameters.instancingColor ? '#define USE_COLOR' : '', parameters.vertexAlphas ? '#define USE_COLOR_ALPHA' : '', parameters.vertexUvs ? '#define USE_UV' : '', parameters.uvsVertexOnly ? '#define UVS_VERTEX_ONLY' : '', parameters.gradientMap ? '#define USE_GRADIENTMAP' : '', parameters.flatShading ? '#define FLAT_SHADED' : '', parameters.doubleSided ? '#define DOUBLE_SIDED' : '', parameters.flipSided ? '#define FLIP_SIDED' : '', parameters.shadowMapEnabled ? '#define USE_SHADOWMAP' : '', parameters.shadowMapEnabled ? '#define ' + shadowMapTypeDefine : '', parameters.premultipliedAlpha ? '#define PREMULTIPLIED_ALPHA' : '', parameters.physicallyCorrectLights ? '#define PHYSICALLY_CORRECT_LIGHTS' : '', parameters.logarithmicDepthBuffer ? '#define USE_LOGDEPTHBUF' : '', parameters.logarithmicDepthBuffer && parameters.rendererExtensionFragDepth ? '#define USE_LOGDEPTHBUF_EXT' : '', 'uniform mat4 viewMatrix;', 'uniform vec3 cameraPosition;', 'uniform bool isOrthographic;', parameters.toneMapping !== NoToneMapping ? '#define TONE_MAPPING' : '', parameters.toneMapping !== NoToneMapping ? ShaderChunk['tonemapping_pars_fragment'] : '',
+		prefixFragment = [customExtensions, generatePrecision(parameters), '#define SHADER_NAME ' + parameters.shaderName, customDefines, parameters.useFog && parameters.fog ? '#define USE_FOG' : '', parameters.useFog && parameters.fogExp2 ? '#define FOG_EXP2' : '', parameters.map ? '#define USE_MAP' : '', parameters.matcap ? '#define USE_MATCAP' : '', parameters.envMap ? '#define USE_ENVMAP' : '', parameters.envMap ? '#define ' + envMapTypeDefine : '', parameters.envMap ? '#define ' + envMapModeDefine : '', parameters.envMap ? '#define ' + envMapBlendingDefine : '', envMapCubeUVSize ? '#define CUBEUV_TEXEL_WIDTH ' + envMapCubeUVSize.texelWidth : '', envMapCubeUVSize ? '#define CUBEUV_TEXEL_HEIGHT ' + envMapCubeUVSize.texelHeight : '', envMapCubeUVSize ? '#define CUBEUV_MAX_MIP ' + envMapCubeUVSize.maxMip + '.0' : '', parameters.lightMap ? '#define USE_LIGHTMAP' : '', parameters.aoMap ? '#define USE_AOMAP' : '', parameters.emissiveMap ? '#define USE_EMISSIVEMAP' : '', parameters.bumpMap ? '#define USE_BUMPMAP' : '', parameters.normalMap ? '#define USE_NORMALMAP' : '', parameters.normalMap && parameters.objectSpaceNormalMap ? '#define OBJECTSPACE_NORMALMAP' : '', parameters.normalMap && parameters.tangentSpaceNormalMap ? '#define TANGENTSPACE_NORMALMAP' : '', parameters.clearcoat ? '#define USE_CLEARCOAT' : '', parameters.clearcoatMap ? '#define USE_CLEARCOATMAP' : '', parameters.clearcoatRoughnessMap ? '#define USE_CLEARCOAT_ROUGHNESSMAP' : '', parameters.clearcoatNormalMap ? '#define USE_CLEARCOAT_NORMALMAP' : '', parameters.iridescence ? '#define USE_IRIDESCENCE' : '', parameters.iridescenceMap ? '#define USE_IRIDESCENCEMAP' : '', parameters.iridescenceThicknessMap ? '#define USE_IRIDESCENCE_THICKNESSMAP' : '', parameters.specularMap ? '#define USE_SPECULARMAP' : '', parameters.specularIntensityMap ? '#define USE_SPECULARINTENSITYMAP' : '', parameters.specularColorMap ? '#define USE_SPECULARCOLORMAP' : '', parameters.roughnessMap ? '#define USE_ROUGHNESSMAP' : '', parameters.metalnessMap ? '#define USE_METALNESSMAP' : '', parameters.alphaMap ? '#define USE_ALPHAMAP' : '', parameters.alphaTest ? '#define USE_ALPHATEST' : '', parameters.sheen ? '#define USE_SHEEN' : '', parameters.sheenColorMap ? '#define USE_SHEENCOLORMAP' : '', parameters.sheenRoughnessMap ? '#define USE_SHEENROUGHNESSMAP' : '', parameters.transmission ? '#define USE_TRANSMISSION' : '', parameters.transmissionMap ? '#define USE_TRANSMISSIONMAP' : '', parameters.thicknessMap ? '#define USE_THICKNESSMAP' : '', parameters.decodeVideoTexture ? '#define DECODE_VIDEO_TEXTURE' : '', parameters.vertexTangents ? '#define USE_TANGENT' : '', parameters.vertexColors || parameters.instancingColor ? '#define USE_COLOR' : '', parameters.vertexAlphas ? '#define USE_COLOR_ALPHA' : '', parameters.vertexUvs ? '#define USE_UV' : '', parameters.uvsVertexOnly ? '#define UVS_VERTEX_ONLY' : '', parameters.gradientMap ? '#define USE_GRADIENTMAP' : '', parameters.flatShading ? '#define FLAT_SHADED' : '', parameters.doubleSided ? '#define DOUBLE_SIDED' : '', parameters.flipSided ? '#define FLIP_SIDED' : '', parameters.shadowMapEnabled ? '#define USE_SHADOWMAP' : '', parameters.shadowMapEnabled ? '#define ' + shadowMapTypeDefine : '', parameters.premultipliedAlpha ? '#define PREMULTIPLIED_ALPHA' : '', parameters.physicallyCorrectLights ? '#define PHYSICALLY_CORRECT_LIGHTS' : '', parameters.logarithmicDepthBuffer ? '#define USE_LOGDEPTHBUF' : '', parameters.logarithmicDepthBuffer && parameters.rendererExtensionFragDepth ? '#define USE_LOGDEPTHBUF_EXT' : '', 'uniform mat4 viewMatrix;', 'uniform vec3 cameraPosition;', 'uniform bool isOrthographic;', parameters.velocity ? 'varying vec4 clipPositionCurrent;' : '', parameters.velocity ? 'varying vec4 clipPositionPrevious;' : '', parameters.toneMapping !== NoToneMapping ? '#define TONE_MAPPING' : '', parameters.toneMapping !== NoToneMapping ? ShaderChunk['tonemapping_pars_fragment'] : '',
 		// this code is required here because it is used by the toneMapping() function defined below
 		parameters.toneMapping !== NoToneMapping ? getToneMappingFunction('toneMapping', parameters.toneMapping) : '', parameters.dithering ? '#define DITHERING' : '', parameters.opaque ? '#define OPAQUE' : '', ShaderChunk['encodings_pars_fragment'],
 		// this code is required here because it is used by the various encoding/decoding function defined below
@@ -12516,13 +12546,20 @@ function WebGLProgram(renderer, cacheKey, parameters, bindingStates) {
 		versionString = '#version 300 es\n';
 		prefixVertex = ['precision mediump sampler2DArray;', '#define attribute in', '#define varying out', '#define texture2D texture'].join('\n') + '\n' + prefixVertex;
 		prefixFragment = ['#define varying in', parameters.glslVersion === GLSL3 ? '' : 'layout(location = 0) out highp vec4 pc_fragColor;', parameters.glslVersion === GLSL3 ? '' : '#define gl_FragColor pc_fragColor', '#define gl_FragDepthEXT gl_FragDepth', '#define texture2D texture', '#define textureCube texture', '#define texture2DProj textureProj', '#define texture2DLodEXT textureLod', '#define texture2DProjLodEXT textureProjLod', '#define textureCubeLodEXT textureLod', '#define texture2DGradEXT textureGrad', '#define texture2DProjGradEXT textureProjGrad', '#define textureCubeGradEXT textureGrad'].join('\n') + '\n' + prefixFragment;
+
+		// Multiview
+
+		if (numMultiviewViews > 0) {
+			prefixVertex = ['#extension GL_OVR_multiview : require', 'layout(num_views = ' + numMultiviewViews + ') in;', '#define VIEW_ID gl_ViewID_OVR'].join('\n') + '\n' + prefixVertex;
+			prefixVertex = prefixVertex.replace(['uniform mat4 modelViewMatrix;', 'uniform mat4 projectionMatrix;', 'uniform mat4 viewMatrix;', 'uniform mat3 normalMatrix;'].join('\n'), ['uniform mat4 modelViewMatrices[' + numMultiviewViews + '];', 'uniform mat4 projectionMatrices[' + numMultiviewViews + '];', 'uniform mat4 viewMatrices[' + numMultiviewViews + '];', 'uniform mat3 normalMatrices[' + numMultiviewViews + '];', '#define modelViewMatrix modelViewMatrices[VIEW_ID]', '#define projectionMatrix projectionMatrices[VIEW_ID]', '#define viewMatrix viewMatrices[VIEW_ID]', '#define normalMatrix normalMatrices[VIEW_ID]'].join('\n'));
+			prefixFragment = ['#extension GL_OVR_multiview : require', '#define VIEW_ID gl_ViewID_OVR'].join('\n') + '\n' + prefixFragment;
+			prefixFragment = prefixFragment.replace('uniform mat4 viewMatrix;', ['uniform mat4 viewMatrices[' + numMultiviewViews + '];', '#define viewMatrix viewMatrices[VIEW_ID]'].join('\n'));
+		}
 	}
 	const vertexGlsl = versionString + prefixVertex + vertexShader;
 	const fragmentGlsl = versionString + prefixFragment + fragmentShader;
-
-	// console.log( '*VERTEX*', vertexGlsl );
-	// console.log( '*FRAGMENT*', fragmentGlsl );
-
+	console.log('*VERTEX*', vertexGlsl);
+	console.log('*FRAGMENT*', fragmentGlsl);
 	const glVertexShader = WebGLShader(gl, gl.VERTEX_SHADER, vertexGlsl);
 	const glFragmentShader = WebGLShader(gl, gl.FRAGMENT_SHADER, fragmentGlsl);
 	gl.attachShader(program, glVertexShader);
@@ -12617,6 +12654,7 @@ function WebGLProgram(renderer, cacheKey, parameters, bindingStates) {
 	this.program = program;
 	this.vertexShader = glVertexShader;
 	this.fragmentShader = glFragmentShader;
+	this.numMultiviewViews = numMultiviewViews;
 	return this;
 }
 
@@ -12711,7 +12749,8 @@ function WebGLPrograms(renderer, cubemaps, cubeuvmaps, extensions, capabilities,
 		LineDashedMaterial: 'dashed',
 		PointsMaterial: 'points',
 		ShadowMaterial: 'shadow',
-		SpriteMaterial: 'sprite'
+		SpriteMaterial: 'sprite',
+		VelocityMaterial: 'velocity'
 	};
 	function getParameters(material, lights, shadows, scene, object) {
 		const fog = scene.fog;
@@ -12756,6 +12795,7 @@ function WebGLPrograms(renderer, cubemaps, cubeuvmaps, extensions, capabilities,
 			customFragmentShaderID = _customShaders.getFragmentShaderID(material);
 		}
 		const currentRenderTarget = renderer.getRenderTarget();
+		const numMultiviewViews = currentRenderTarget && currentRenderTarget.isWebGLMultiviewRenderTarget ? currentRenderTarget.numViews : 0;
 		const useAlphaTest = material.alphaTest > 0;
 		const useClearcoat = material.clearcoat > 0;
 		const useIridescence = material.iridescence > 0;
@@ -12774,6 +12814,7 @@ function WebGLPrograms(renderer, cubemaps, cubeuvmaps, extensions, capabilities,
 			instancing: object.isInstancedMesh === true,
 			instancingColor: object.isInstancedMesh === true && object.instanceColor !== null,
 			supportsVertexTextures: vertexTextures,
+			numMultiviewViews: numMultiviewViews,
 			outputEncoding: currentRenderTarget === null ? renderer.outputEncoding : currentRenderTarget.isXRRenderTarget === true ? currentRenderTarget.texture.encoding : LinearEncoding,
 			map: !!material.map,
 			matcap: !!material.matcap,
@@ -12846,6 +12887,7 @@ function WebGLPrograms(renderer, cubemaps, cubeuvmaps, extensions, capabilities,
 			shadowMapType: renderer.shadowMap.type,
 			toneMapping: material.toneMapped ? renderer.toneMapping : NoToneMapping,
 			physicallyCorrectLights: renderer.physicallyCorrectLights,
+			velocity: material.isVelocityMaterial === true,
 			premultipliedAlpha: material.premultipliedAlpha,
 			doubleSided: material.side === DoubleSide,
 			flipSided: material.side === BackSide,
@@ -12974,6 +13016,7 @@ function WebGLPrograms(renderer, cubemaps, cubeuvmaps, extensions, capabilities,
 		if (parameters.sheenRoughnessMap) _programLayers.enable(22);
 		if (parameters.decodeVideoTexture) _programLayers.enable(23);
 		if (parameters.opaque) _programLayers.enable(24);
+		if (parameters.numMultiviewViews) _programLayers.enable(25);
 		array.push(_programLayers.mask);
 	}
 	function getUniforms(material) {
@@ -14700,9 +14743,12 @@ function WebGLTextures(_gl, extensions, state, properties, capabilities, utils, 
 	const maxSamples = capabilities.maxSamples;
 	const multisampledRTTExt = extensions.has('WEBGL_multisampled_render_to_texture') ? extensions.get('WEBGL_multisampled_render_to_texture') : null;
 	const supportsInvalidateFramebuffer = typeof navigator === 'undefined' ? false : /OculusBrowser/g.test(navigator.userAgent);
+	const multiviewExt = extensions.has('OCULUS_multiview') ? extensions.get('OCULUS_multiview') : null;
 	const _videoTextures = new WeakMap();
 	let _canvas;
 	const _sources = new WeakMap(); // maps WebglTexture objects to instances of Source
+
+	let _deferredUploads = [];
 
 	// cordova iOS (as of 5.0) still uses UIWebView, which provides OffscreenCanvas,
 	// also OffscreenCanvas.getContext("webgl"), but not OffscreenCanvas.getContext("2d")!
@@ -14967,8 +15013,9 @@ function WebGLTextures(_gl, extensions, state, properties, capabilities, utils, 
 			} else if (image.complete === false) {
 				console.warn('THREE.WebGLRenderer: Texture marked for update but image is incomplete');
 			} else {
-				uploadTexture(textureProperties, texture, slot);
-				return;
+				if (this.uploadTexture(textureProperties, texture, slot)) {
+					return;
+				}
 			}
 		}
 		state.bindTexture(_gl.TEXTURE_2D, textureProperties.__webglTexture, _gl.TEXTURE0 + slot);
@@ -14976,7 +15023,7 @@ function WebGLTextures(_gl, extensions, state, properties, capabilities, utils, 
 	function setTexture2DArray(texture, slot) {
 		const textureProperties = properties.get(texture);
 		if (texture.version > 0 && textureProperties.__version !== texture.version) {
-			uploadTexture(textureProperties, texture, slot);
+			this.uploadTexture(textureProperties, texture, slot);
 			return;
 		}
 		state.bindTexture(_gl.TEXTURE_2D_ARRAY, textureProperties.__webglTexture, _gl.TEXTURE0 + slot);
@@ -14984,7 +15031,7 @@ function WebGLTextures(_gl, extensions, state, properties, capabilities, utils, 
 	function setTexture3D(texture, slot) {
 		const textureProperties = properties.get(texture);
 		if (texture.version > 0 && textureProperties.__version !== texture.version) {
-			uploadTexture(textureProperties, texture, slot);
+			this.uploadTexture(textureProperties, texture, slot);
 			return;
 		}
 		state.bindTexture(_gl.TEXTURE_3D, textureProperties.__webglTexture, _gl.TEXTURE0 + slot);
@@ -15014,7 +15061,7 @@ function WebGLTextures(_gl, extensions, state, properties, capabilities, utils, 
 		if (supportsMips) {
 			_gl.texParameteri(textureType, _gl.TEXTURE_WRAP_S, wrappingToGL[texture.wrapS]);
 			_gl.texParameteri(textureType, _gl.TEXTURE_WRAP_T, wrappingToGL[texture.wrapT]);
-			if (textureType === _gl.TEXTURE_3D || textureType === _gl.TEXTURE_2D_ARRAY) {
+			if ((textureType === _gl.TEXTURE_3D || textureType === _gl.TEXTURE_2D_ARRAY) && texture.wrapR !== undefined) {
 				_gl.texParameteri(textureType, _gl.TEXTURE_WRAP_R, wrappingToGL[texture.wrapR]);
 			}
 			_gl.texParameteri(textureType, _gl.TEXTURE_MAG_FILTER, filterToGL[texture.magFilter]);
@@ -15103,7 +15150,28 @@ function WebGLTextures(_gl, extensions, state, properties, capabilities, utils, 
 		}
 		return forceUpload;
 	}
+	function runDeferredUploads() {
+		const previousDeferSetting = this.deferTextureUploads;
+		this.deferTextureUploads = false;
+		for (const upload of _deferredUploads) {
+			this.uploadTexture(upload.textureProperties, upload.texture, upload.slot);
+			upload.texture.isPendingDeferredUpload = false;
+		}
+		_deferredUploads = [];
+		this.deferTextureUploads = previousDeferSetting;
+	}
 	function uploadTexture(textureProperties, texture, slot) {
+		if (this.deferTextureUploads) {
+			if (!texture.isPendingDeferredUpload) {
+				texture.isPendingDeferredUpload = true;
+				_deferredUploads.push({
+					textureProperties: textureProperties,
+					texture: texture,
+					slot: slot
+				});
+			}
+			return false;
+		}
 		let textureType = _gl.TEXTURE_2D;
 		if (texture.isDataArrayTexture || texture.isCompressedArrayTexture) textureType = _gl.TEXTURE_2D_ARRAY;
 		if (texture.isData3DTexture) textureType = _gl.TEXTURE_3D;
@@ -15334,6 +15402,7 @@ function WebGLTextures(_gl, extensions, state, properties, capabilities, utils, 
 			if (texture.onUpdate) texture.onUpdate(texture);
 		}
 		textureProperties.__version = texture.version;
+		return true;
 	}
 	function uploadCubeTexture(textureProperties, texture, slot) {
 		if (texture.image.length !== 6) return;
@@ -15457,19 +15526,30 @@ function WebGLTextures(_gl, extensions, state, properties, capabilities, utils, 
 		const glInternalFormat = getInternalFormat(texture.internalFormat, glFormat, glType, texture.encoding);
 		const renderTargetProperties = properties.get(renderTarget);
 		if (!renderTargetProperties.__hasExternalTextures) {
-			if (textureTarget === _gl.TEXTURE_3D || textureTarget === _gl.TEXTURE_2D_ARRAY) {
+			if (renderTarget.isWebGLMultiviewRenderTarget === true) {
+				state.texStorage3D(_gl.TEXTURE_2D_ARRAY, 0, glInternalFormat, renderTarget.width, renderTarget.height, renderTarget.numViews);
+			} else if (textureTarget === _gl.TEXTURE_3D || textureTarget === _gl.TEXTURE_2D_ARRAY) {
 				state.texImage3D(textureTarget, 0, glInternalFormat, renderTarget.width, renderTarget.height, renderTarget.depth, 0, glFormat, glType, null);
 			} else {
 				state.texImage2D(textureTarget, 0, glInternalFormat, renderTarget.width, renderTarget.height, 0, glFormat, glType, null);
 			}
 		}
 		state.bindFramebuffer(_gl.FRAMEBUFFER, framebuffer);
-		if (useMultisampledRTT(renderTarget)) {
-			multisampledRTTExt.framebufferTexture2DMultisampleEXT(_gl.FRAMEBUFFER, attachment, textureTarget, properties.get(texture).__webglTexture, 0, getRenderTargetSamples(renderTarget));
+		const multisampled = useMultisampledRTT(renderTarget);
+		if (renderTarget.isWebGLMultiviewRenderTarget === true) {
+			if (multisampled) {
+				multiviewExt.framebufferTextureMultisampleMultiviewOVR(_gl.FRAMEBUFFER, _gl.COLOR_ATTACHMENT0, properties.get(texture).__webglTexture, 0, getRenderTargetSamples(renderTarget), 0, renderTarget.numViews);
+			} else {
+				multiviewExt.framebufferTextureMultiviewOVR(_gl.FRAMEBUFFER, _gl.COLOR_ATTACHMENT0, properties.get(texture).__webglTexture, 0, 0, renderTarget.numViews);
+			}
 		} else if (textureTarget === _gl.TEXTURE_2D || textureTarget >= _gl.TEXTURE_CUBE_MAP_POSITIVE_X && textureTarget <= _gl.TEXTURE_CUBE_MAP_NEGATIVE_Z) {
 			// see #24753
 
-			_gl.framebufferTexture2D(_gl.FRAMEBUFFER, attachment, textureTarget, properties.get(texture).__webglTexture, 0);
+			if (multisampled) {
+				multisampledRTTExt.framebufferTexture2DMultisampleEXT(_gl.FRAMEBUFFER, attachment, textureTarget, properties.get(texture).__webglTexture, 0, getRenderTargetSamples(renderTarget));
+			} else {
+				_gl.framebufferTexture2D(_gl.FRAMEBUFFER, attachment, textureTarget, properties.get(texture).__webglTexture, 0);
+			}
 		}
 		state.bindFramebuffer(_gl.FRAMEBUFFER, null);
 	}
@@ -15477,7 +15557,42 @@ function WebGLTextures(_gl, extensions, state, properties, capabilities, utils, 
 	// Setup storage for internal depth/stencil buffers and bind to correct framebuffer
 	function setupRenderBufferStorage(renderbuffer, renderTarget, isMultisample) {
 		_gl.bindRenderbuffer(_gl.RENDERBUFFER, renderbuffer);
-		if (renderTarget.depthBuffer && !renderTarget.stencilBuffer) {
+		if (renderTarget.isWebGLMultiviewRenderTarget === true) {
+			const useMultisample = useMultisampledRTT(renderTarget);
+			const numViews = renderTarget.numViews;
+			const depthTexture = renderTarget.depthTexture;
+			let glInternalFormat = _gl.DEPTH_COMPONENT24;
+			let glDepthAttachment = _gl.DEPTH_ATTACHMENT;
+			if (depthTexture && depthTexture.isDepthTexture) {
+				if (depthTexture.type === FloatType) {
+					glInternalFormat = _gl.DEPTH_COMPONENT32F;
+				} else if (depthTexture.type === UnsignedInt248Type) {
+					glInternalFormat = _gl.DEPTH24_STENCIL8;
+					glDepthAttachment = _gl.DEPTH_STENCIL_ATTACHMENT;
+				}
+
+				// we're defaulting to _gl.DEPTH_COMPONENT24 so don't assign here
+				// or else DeepScan will complain
+
+				// else if ( depthTexture.type === UnsignedIntType ) {
+
+				// 	glInternalFormat = _gl.DEPTH_COMPONENT24;
+
+				// }
+			}
+
+			let depthStencilTexture = properties.get(renderTarget.depthTexture).__webglTexture;
+			if (depthStencilTexture === undefined) {
+				depthStencilTexture = _gl.createTexture();
+				_gl.bindTexture(_gl.TEXTURE_2D_ARRAY, depthStencilTexture);
+				_gl.texStorage3D(_gl.TEXTURE_2D_ARRAY, 1, glInternalFormat, renderTarget.width, renderTarget.height, numViews);
+			}
+			if (useMultisample) {
+				multiviewExt.framebufferTextureMultisampleMultiviewOVR(_gl.FRAMEBUFFER, glDepthAttachment, depthStencilTexture, 0, getRenderTargetSamples(renderTarget), 0, numViews);
+			} else {
+				multiviewExt.framebufferTextureMultiviewOVR(_gl.FRAMEBUFFER, glDepthAttachment, depthStencilTexture, 0, 0, numViews);
+			}
+		} else if (renderTarget.depthBuffer && !renderTarget.stencilBuffer) {
 			let glInternalFormat = _gl.DEPTH_COMPONENT16;
 			if (isMultisample || useMultisampledRTT(renderTarget)) {
 				const depthTexture = renderTarget.depthTexture;
@@ -15543,23 +15658,47 @@ function WebGLTextures(_gl, extensions, state, properties, capabilities, utils, 
 			renderTarget.depthTexture.image.height = renderTarget.height;
 			renderTarget.depthTexture.needsUpdate = true;
 		}
-		setTexture2D(renderTarget.depthTexture, 0);
+		if (renderTarget.depthTexture.image.depth != 1) {
+			this.setTexture2DArray(renderTarget.depthTexture, 0);
+		} else {
+			this.setTexture2D(renderTarget.depthTexture, 0);
+		}
 		const webglDepthTexture = properties.get(renderTarget.depthTexture).__webglTexture;
 		const samples = getRenderTargetSamples(renderTarget);
-		if (renderTarget.depthTexture.format === DepthFormat) {
-			if (useMultisampledRTT(renderTarget)) {
-				multisampledRTTExt.framebufferTexture2DMultisampleEXT(_gl.FRAMEBUFFER, _gl.DEPTH_ATTACHMENT, _gl.TEXTURE_2D, webglDepthTexture, 0, samples);
+		if (renderTarget.isWebGLMultiviewRenderTarget === true) {
+			const useMultisample = useMultisampledRTT(renderTarget);
+			const numViews = renderTarget.numViews;
+			if (renderTarget.depthTexture.format === DepthFormat) {
+				if (useMultisample) {
+					multiviewExt.framebufferTextureMultisampleMultiviewOVR(_gl.FRAMEBUFFER, _gl.DEPTH_ATTACHMENT, webglDepthTexture, 0, samples, 0, numViews);
+				} else {
+					multiviewExt.framebufferTextureMultiviewOVR(_gl.FRAMEBUFFER, _gl.DEPTH_ATTACHMENT, webglDepthTexture, 0, 0, numViews);
+				}
+			} else if (renderTarget.depthTexture.format === DepthStencilFormat) {
+				if (useMultisample) {
+					multiviewExt.framebufferTextureMultisampleMultiviewOVR(_gl.FRAMEBUFFER, _gl.DEPTH_STENCIL_ATTACHMENT, webglDepthTexture, 0, samples, 0, numViews);
+				} else {
+					multiviewExt.framebufferTextureMultiviewOVR(_gl.FRAMEBUFFER, _gl.DEPTH_STENCIL_ATTACHMENT, webglDepthTexture, 0, 0, numViews);
+				}
 			} else {
-				_gl.framebufferTexture2D(_gl.FRAMEBUFFER, _gl.DEPTH_ATTACHMENT, _gl.TEXTURE_2D, webglDepthTexture, 0);
-			}
-		} else if (renderTarget.depthTexture.format === DepthStencilFormat) {
-			if (useMultisampledRTT(renderTarget)) {
-				multisampledRTTExt.framebufferTexture2DMultisampleEXT(_gl.FRAMEBUFFER, _gl.DEPTH_STENCIL_ATTACHMENT, _gl.TEXTURE_2D, webglDepthTexture, 0, samples);
-			} else {
-				_gl.framebufferTexture2D(_gl.FRAMEBUFFER, _gl.DEPTH_STENCIL_ATTACHMENT, _gl.TEXTURE_2D, webglDepthTexture, 0);
+				throw new Error('Unknown depthTexture format');
 			}
 		} else {
-			throw new Error('Unknown depthTexture format');
+			if (renderTarget.depthTexture.format === DepthFormat) {
+				if (useMultisampledRTT(renderTarget)) {
+					multisampledRTTExt.framebufferTexture2DMultisampleEXT(_gl.FRAMEBUFFER, _gl.DEPTH_ATTACHMENT, _gl.TEXTURE_2D, webglDepthTexture, 0, samples);
+				} else {
+					_gl.framebufferTexture2D(_gl.FRAMEBUFFER, _gl.DEPTH_ATTACHMENT, _gl.TEXTURE_2D, webglDepthTexture, 0);
+				}
+			} else if (renderTarget.depthTexture.format === DepthStencilFormat) {
+				if (useMultisampledRTT(renderTarget)) {
+					multisampledRTTExt.framebufferTexture2DMultisampleEXT(_gl.FRAMEBUFFER, _gl.DEPTH_STENCIL_ATTACHMENT, _gl.TEXTURE_2D, webglDepthTexture, 0, samples);
+				} else {
+					_gl.framebufferTexture2D(_gl.FRAMEBUFFER, _gl.DEPTH_STENCIL_ATTACHMENT, _gl.TEXTURE_2D, webglDepthTexture, 0);
+				}
+			} else {
+				throw new Error('Unknown depthTexture format');
+			}
 		}
 	}
 
@@ -15569,7 +15708,7 @@ function WebGLTextures(_gl, extensions, state, properties, capabilities, utils, 
 		const isCube = renderTarget.isWebGLCubeRenderTarget === true;
 		if (renderTarget.depthTexture && !renderTargetProperties.__autoAllocateDepthBuffer) {
 			if (isCube) throw new Error('target.depthTexture not supported in Cube render targets');
-			setupDepthTexture(renderTargetProperties.__webglFramebuffer, renderTarget);
+			this.setupDepthTexture(renderTargetProperties.__webglFramebuffer, renderTarget);
 		} else {
 			if (isCube) {
 				renderTargetProperties.__webglDepthbuffer = [];
@@ -15591,10 +15730,10 @@ function WebGLTextures(_gl, extensions, state, properties, capabilities, utils, 
 	function rebindTextures(renderTarget, colorTexture, depthTexture) {
 		const renderTargetProperties = properties.get(renderTarget);
 		if (colorTexture !== undefined) {
-			setupFrameBufferTexture(renderTargetProperties.__webglFramebuffer, renderTarget, renderTarget.texture, _gl.COLOR_ATTACHMENT0, _gl.TEXTURE_2D);
+			this.setupFrameBufferTexture(renderTargetProperties.__webglFramebuffer, renderTarget, renderTarget.texture, _gl.COLOR_ATTACHMENT0, _gl.TEXTURE_2D);
 		}
 		if (depthTexture !== undefined) {
-			setupDepthRenderbuffer(renderTarget);
+			this.setupDepthRenderbuffer(renderTarget);
 		}
 	}
 
@@ -15697,6 +15836,9 @@ function WebGLTextures(_gl, extensions, state, properties, capabilities, utils, 
 					console.error('THREE.WebGLTextures: THREE.Data3DTexture and THREE.DataArrayTexture only supported with WebGL2.');
 				}
 			}
+			if (renderTarget.isWebGLMultiviewRenderTarget === true) {
+				glTextureType = _gl.TEXTURE_2D_ARRAY;
+			}
 			state.bindTexture(glTextureType, textureProperties.__webglTexture);
 			setTextureParameters(glTextureType, texture, supportsMips);
 			setupFrameBufferTexture(renderTargetProperties.__webglFramebuffer, renderTarget, texture, _gl.COLOR_ATTACHMENT0, glTextureType);
@@ -15708,8 +15850,8 @@ function WebGLTextures(_gl, extensions, state, properties, capabilities, utils, 
 
 		// Setup depth and stencil buffers
 
-		if (renderTarget.depthBuffer) {
-			setupDepthRenderbuffer(renderTarget);
+		if (renderTarget.depthBuffer || renderTarget.isWebGLMultiviewRenderTarget === true) {
+			this.setupDepthRenderbuffer(renderTarget);
 		}
 	}
 	function updateRenderTargetMipmap(renderTarget) {
@@ -15854,12 +15996,15 @@ function WebGLTextures(_gl, extensions, state, properties, capabilities, utils, 
 	this.setTexture3D = setTexture3D;
 	this.setTextureCube = setTextureCube;
 	this.rebindTextures = rebindTextures;
+	this.uploadTexture = uploadTexture;
 	this.setupRenderTarget = setupRenderTarget;
 	this.updateRenderTargetMipmap = updateRenderTargetMipmap;
 	this.updateMultisampleRenderTarget = updateMultisampleRenderTarget;
+	this.setupDepthTexture = setupDepthTexture;
 	this.setupDepthRenderbuffer = setupDepthRenderbuffer;
 	this.setupFrameBufferTexture = setupFrameBufferTexture;
 	this.useMultisampledRTT = useMultisampledRTT;
+	this.runDeferredUploads = runDeferredUploads;
 }
 
 function WebGLUtils(gl, extensions, capabilities) {
@@ -16036,6 +16181,62 @@ function WebGLUtils(gl, extensions, capabilities) {
 	};
 }
 
+/**
+ * @author fernandojsg / http://fernandojsg.com
+ * @author Takahiro https://github.com/takahirox
+ */
+class WebGLMultiview {
+	constructor(renderer, extensions, gl) {
+		this.renderer = renderer;
+		this.DEFAULT_NUMVIEWS = 2;
+		this.maxNumViews = 0;
+		this.gl = gl;
+		this.extensions = extensions;
+		this.available = this.extensions.has('OCULUS_multiview');
+		if (this.available) {
+			const extension = this.extensions.get('OCULUS_multiview');
+			this.maxNumViews = this.gl.getParameter(extension.MAX_VIEWS_OVR);
+			this.mat4 = [];
+			this.mat3 = [];
+			this.cameraArray = [];
+			for (var i = 0; i < this.maxNumViews; i++) {
+				this.mat4[i] = new Matrix4();
+				this.mat3[i] = new Matrix3();
+			}
+		}
+	}
+
+	//
+	getCameraArray(camera) {
+		if (camera.isArrayCamera) return camera.cameras;
+		this.cameraArray[0] = camera;
+		return this.cameraArray;
+	}
+	updateCameraProjectionMatricesUniform(camera, uniforms) {
+		var cameras = this.getCameraArray(camera);
+		for (var i = 0; i < cameras.length; i++) {
+			this.mat4[i].copy(cameras[i].projectionMatrix);
+		}
+		uniforms.setValue(this.gl, 'projectionMatrices', this.mat4);
+	}
+	updateCameraViewMatricesUniform(camera, uniforms) {
+		var cameras = this.getCameraArray(camera);
+		for (var i = 0; i < cameras.length; i++) {
+			this.mat4[i].copy(cameras[i].matrixWorldInverse);
+		}
+		uniforms.setValue(this.gl, 'viewMatrices', this.mat4);
+	}
+	updateObjectMatricesUniforms(object, camera, uniforms) {
+		var cameras = this.getCameraArray(camera);
+		for (var i = 0; i < cameras.length; i++) {
+			this.mat4[i].multiplyMatrices(cameras[i].matrixWorldInverse, object.matrixWorld);
+			this.mat3[i].getNormalMatrix(this.mat4[i]);
+		}
+		uniforms.setValue(this.gl, 'modelViewMatrices', this.mat4);
+		uniforms.setValue(this.gl, 'normalMatrices', this.mat3);
+	}
+}
+
 class ArrayCamera extends PerspectiveCamera {
 	constructor(array = []) {
 		super();
@@ -16043,6 +16244,44 @@ class ArrayCamera extends PerspectiveCamera {
 		this.cameras = array;
 	}
 }
+
+class InstancedBufferAttribute extends BufferAttribute {
+	constructor(array, itemSize, normalized, meshPerAttribute = 1) {
+		super(array, itemSize, normalized);
+		this.isInstancedBufferAttribute = true;
+		this.meshPerAttribute = meshPerAttribute;
+	}
+	copy(source) {
+		super.copy(source);
+		this.meshPerAttribute = source.meshPerAttribute;
+		return this;
+	}
+	toJSON() {
+		const data = super.toJSON();
+		data.meshPerAttribute = this.meshPerAttribute;
+		data.isInstancedBufferAttribute = true;
+		return data;
+	}
+}
+
+/**
+ * @author fernandojsg / http://fernandojsg.com
+ * @author Takahiro https://github.com/takahirox
+ */
+class WebGLMultiviewRenderTarget extends WebGLRenderTarget {
+	constructor(width, height, numViews, options = {}) {
+		super(width, height, options);
+		this.depthBuffer = false;
+		this.stencilBuffer = false;
+		this.numViews = numViews;
+	}
+	copy(source) {
+		super.copy(source);
+		this.numViews = source.numViews;
+		return this;
+	}
+}
+WebGLMultiviewRenderTarget.prototype.isWebGLMultiviewRenderTarget = true;
 
 class Group extends Object3D {
 	constructor() {
@@ -16282,8 +16521,24 @@ class DepthTexture extends Texture {
 	}
 }
 
+class VelocityMaterial extends Material {
+	constructor(parameters) {
+		super();
+		this.isVelocityMaterial = true;
+		this.type = 'VelocityMaterial';
+		this.previousModelMatrix = new Matrix4();
+		this.previousViewMatrices = [new Matrix4(), new Matrix4()];
+		this.previousInstanceMatrix = null;
+		this.setValues(parameters);
+	}
+	copy(source) {
+		super.copy(source);
+		return this;
+	}
+}
+
 class WebXRManager extends EventDispatcher {
-	constructor(renderer, gl) {
+	constructor(renderer, gl, extensions, useMultiview) {
 		super();
 		const scope = this;
 		let session = null;
@@ -16299,6 +16554,8 @@ class WebXRManager extends EventDispatcher {
 		const attributes = gl.getContextAttributes();
 		let initialRenderTarget = null;
 		let newRenderTarget = null;
+		let velocityRenderTarget = null;
+		let isRenderingSpaceWarp = false;
 		const controllers = [];
 		const controllerInputSources = [];
 		const planes = new Set();
@@ -16324,6 +16581,7 @@ class WebXRManager extends EventDispatcher {
 		this.cameraAutoUpdate = true;
 		this.enabled = false;
 		this.isPresenting = false;
+		this.isMultiview = false;
 		this.getController = function (index) {
 			let controller = controllers[index];
 			if (controller === undefined) {
@@ -16390,6 +16648,7 @@ class WebXRManager extends EventDispatcher {
 			glBinding = null;
 			session = null;
 			newRenderTarget = null;
+			velocityRenderTarget = null;
 
 			//
 
@@ -16432,6 +16691,7 @@ class WebXRManager extends EventDispatcher {
 		this.setSession = async function (value) {
 			session = value;
 			if (session !== null) {
+				session.updateTargetFrameRate(120);
 				initialRenderTarget = renderer.getRenderTarget();
 				session.addEventListener('select', onSessionEvent);
 				session.addEventListener('selectstart', onSessionEvent);
@@ -16471,24 +16731,35 @@ class WebXRManager extends EventDispatcher {
 						depthFormat = attributes.stencil ? DepthStencilFormat : DepthFormat;
 						depthType = attributes.stencil ? UnsignedInt248Type : UnsignedIntType;
 					}
+					scope.isMultiview = useMultiview && extensions.has('OCULUS_multiview');
 					const projectionlayerInit = {
 						colorFormat: gl.RGBA8,
 						depthFormat: glDepthFormat,
 						scaleFactor: framebufferScaleFactor
 					};
+					if (scope.isMultiview) {
+						projectionlayerInit.textureType = 'texture-array';
+					}
 					glBinding = new XRWebGLBinding(session, gl);
 					glProjLayer = glBinding.createProjectionLayer(projectionlayerInit);
 					session.updateRenderState({
 						layers: [glProjLayer]
 					});
-					newRenderTarget = new WebGLRenderTarget(glProjLayer.textureWidth, glProjLayer.textureHeight, {
+					const rtOptions = {
 						format: RGBAFormat,
 						type: UnsignedByteType,
 						depthTexture: new DepthTexture(glProjLayer.textureWidth, glProjLayer.textureHeight, depthType, undefined, undefined, undefined, undefined, undefined, undefined, depthFormat),
 						stencilBuffer: attributes.stencil,
 						encoding: renderer.outputEncoding,
 						samples: attributes.antialias ? 4 : 0
-					});
+					};
+					if (scope.isMultiview) {
+						const extension = extensions.get('OCULUS_multiview');
+						this.maxNumViews = gl.getParameter(extension.MAX_VIEWS_OVR);
+						newRenderTarget = new WebGLMultiviewRenderTarget(glProjLayer.textureWidth, glProjLayer.textureHeight, 2, rtOptions);
+					} else {
+						newRenderTarget = new WebGLRenderTarget(glProjLayer.textureWidth, glProjLayer.textureHeight, rtOptions);
+					}
 					const renderTargetProperties = renderer.properties.get(newRenderTarget);
 					renderTargetProperties.__ignoreDepthValues = glProjLayer.ignoreDepthValues;
 				}
@@ -16681,6 +16952,8 @@ class WebXRManager extends EventDispatcher {
 		// Animation Loop
 
 		let onAnimationFrameCallback = null;
+		let onVelocityCallback = null;
+		let glSubImage = null;
 		function onAnimationFrame(time, frame) {
 			pose = frame.getViewerPose(customReferenceSpace || referenceSpace);
 			xrFrame = frame;
@@ -16704,12 +16977,11 @@ class WebXRManager extends EventDispatcher {
 					if (glBaseLayer !== null) {
 						viewport = glBaseLayer.getViewport(view);
 					} else {
-						const glSubImage = glBinding.getViewSubImage(glProjLayer, view);
+						glSubImage = glBinding.getViewSubImage(glProjLayer, view);
 						viewport = glSubImage.viewport;
-
 						// For side-by-side projection, we only produce a single texture for both eyes.
 						if (i === 0) {
-							renderer.setRenderTargetTextures(newRenderTarget, glSubImage.colorTexture, glProjLayer.ignoreDepthValues ? undefined : glSubImage.depthStencilTexture);
+							renderer.setRenderTargetTextures(newRenderTarget, glSubImage.colorTexture, undefined);
 							renderer.setRenderTarget(newRenderTarget);
 						}
 					}
@@ -16742,6 +17014,26 @@ class WebXRManager extends EventDispatcher {
 				}
 			}
 			if (onAnimationFrameCallback) onAnimationFrameCallback(time, frame);
+			if (onVelocityCallback) {
+				isRenderingSpaceWarp = true;
+				if (velocityRenderTarget === null) {
+					const rtOptions = {
+						format: RGBAFormat,
+						type: HalfFloatType,
+						depthTexture: new DepthTexture(glSubImage.depthStencilTextureWidth, glSubImage.textureHeight, UnsignedInt248Type, undefined, undefined, undefined, undefined, undefined, undefined, DepthFormat),
+						stencilBuffer: attributes.stencil,
+						encoding: renderer.outputEncoding,
+						samples: 0
+					};
+					velocityRenderTarget = new WebGLMultiviewRenderTarget(glSubImage.motionVectorTextureWidth, glSubImage.motionVectorTextureHeight, 2, rtOptions);
+				}
+				renderer.setRenderTargetTextures(velocityRenderTarget, glSubImage.motionVectorTexture, glSubImage.depthStencilTexture);
+				renderer.setRenderTarget(velocityRenderTarget);
+				cameraVR.cameras[0].viewport.set(0, 0, glSubImage.motionVectorTextureWidth, glSubImage.motionVectorTextureHeight);
+				cameraVR.cameras[1].viewport.set(0, 0, glSubImage.motionVectorTextureWidth, glSubImage.motionVectorTextureHeight);
+				onVelocityCallback(time, frame);
+				isRenderingSpaceWarp = false;
+			}
 			if (frame.detectedPlanes) {
 				scope.dispatchEvent({
 					type: 'planesdetected',
@@ -16788,10 +17080,40 @@ class WebXRManager extends EventDispatcher {
 			}
 			xrFrame = null;
 		}
+		this.spaceWarpOnBeforeRender = function (object, material) {
+			if (isRenderingSpaceWarp === false) {
+				return material;
+			}
+			if (object._velocityMaterial === undefined) {
+				object._velocityMaterial = new VelocityMaterial({
+					side: material.side
+				});
+				object._velocityMaterial.precision = 'highp';
+				if (object.isInstancedMesh === true) {
+					object.previousInstanceMatrix = new InstancedBufferAttribute(new Float32Array(object.instanceMatrix.count * 16), object.instanceMatrix.count);
+					object.previousInstanceMatrix.copy(object.instanceMatrix);
+					object.previousInstanceMatrix.needsUpdate = true;
+				}
+			}
+			return object._velocityMaterial;
+		};
+		this.spaceWarpOnAfterRender = function (object) {
+			if (isRenderingSpaceWarp === false) {
+				return;
+			}
+			object._velocityMaterial.previousViewMatrices[0].copy(cameraVR.cameras[0].matrixWorldInverse);
+			object._velocityMaterial.previousViewMatrices[1].copy(cameraVR.cameras[1].matrixWorldInverse);
+			object._velocityMaterial.previousModelMatrix.copy(object.matrixWorld);
+			if (object.isInstancedMesh === true) {
+				object.previousInstanceMatrix.copy(object.instanceMatrix);
+				object.previousInstanceMatrix.needsUpdate = true;
+			}
+		};
 		const animation = new WebGLAnimation();
 		animation.setAnimationLoop(onAnimationFrame);
-		this.setAnimationLoop = function (callback) {
+		this.setAnimationLoop = function (callback, velocityCallback) {
 			onAnimationFrameCallback = callback;
+			onVelocityCallback = velocityCallback;
 		};
 		this.dispose = function () {};
 	}
@@ -16846,6 +17168,8 @@ function WebGLMaterials(renderer, properties) {
 		} else if (material.isShadowMaterial) {
 			uniforms.color.value.copy(material.color);
 			uniforms.opacity.value = material.opacity;
+		} else if (material.isVelocityMaterial) {
+			refreshUniformsVelocity(uniforms, material);
 		} else if (material.isShaderMaterial) {
 			material.uniformsNeedUpdate = false; // #15581
 		}
@@ -17006,6 +17330,11 @@ function WebGLMaterials(renderer, properties) {
 	function refreshUniformsLine(uniforms, material) {
 		uniforms.diffuse.value.copy(material.color);
 		uniforms.opacity.value = material.opacity;
+	}
+	function refreshUniformsVelocity(uniforms, material) {
+		uniforms.previousViewMatrices.value[0].copy(material.previousViewMatrices[0]);
+		uniforms.previousViewMatrices.value[1].copy(material.previousViewMatrices[1]);
+		uniforms.previousModelMatrix.value.copy(material.previousModelMatrix);
 	}
 	function refreshUniformsDash(uniforms, material) {
 		uniforms.dashSize.value = material.dashSize;
@@ -17464,7 +17793,8 @@ function WebGLRenderer(parameters = {}) {
 		_premultipliedAlpha = parameters.premultipliedAlpha !== undefined ? parameters.premultipliedAlpha : true,
 		_preserveDrawingBuffer = parameters.preserveDrawingBuffer !== undefined ? parameters.preserveDrawingBuffer : false,
 		_powerPreference = parameters.powerPreference !== undefined ? parameters.powerPreference : 'default',
-		_failIfMajorPerformanceCaveat = parameters.failIfMajorPerformanceCaveat !== undefined ? parameters.failIfMajorPerformanceCaveat : false;
+		_failIfMajorPerformanceCaveat = parameters.failIfMajorPerformanceCaveat !== undefined ? parameters.failIfMajorPerformanceCaveat : false,
+		_multiviewStereo = parameters.multiviewStereo !== undefined ? parameters.multiviewStereo : false;
 	let _alpha;
 	if (_context !== null) {
 		_alpha = _context.getContextAttributes().alpha;
@@ -17641,6 +17971,7 @@ function WebGLRenderer(parameters = {}) {
 	let extensions, capabilities, state, info;
 	let properties, textures, cubemaps, cubeuvmaps, attributes, geometries, objects;
 	let programCache, materials, renderLists, renderStates, clipping, shadowMap;
+	let multiview;
 	let background, morphtargets, bufferRenderer, indexedBufferRenderer;
 	let utils, bindingStates, uniformsGroups;
 	function initGLContext() {
@@ -17665,6 +17996,7 @@ function WebGLRenderer(parameters = {}) {
 		renderLists = new WebGLRenderLists();
 		renderStates = new WebGLRenderStates(extensions, capabilities);
 		background = new WebGLBackground(_this, cubemaps, cubeuvmaps, state, objects, _alpha, _premultipliedAlpha);
+		multiview = new WebGLMultiview(_this, extensions, _gl);
 		shadowMap = new WebGLShadowMap(_this, objects, capabilities);
 		uniformsGroups = new WebGLUniformsGroups(_gl, info, capabilities, state);
 		bufferRenderer = new WebGLBufferRenderer(_gl, extensions, info, capabilities);
@@ -17682,7 +18014,7 @@ function WebGLRenderer(parameters = {}) {
 
 	// xr
 
-	const xr = new WebXRManager(_this, _gl);
+	const xr = new WebXRManager(_this, _gl, extensions, _multiviewStereo);
 	this.xr = xr;
 
 	// API
@@ -18028,9 +18360,9 @@ function WebGLRenderer(parameters = {}) {
 	const animation = new WebGLAnimation();
 	animation.setAnimationLoop(onAnimationFrame);
 	if (typeof self !== 'undefined') animation.setContext(self);
-	this.setAnimationLoop = function (callback) {
+	this.setAnimationLoop = function (callback, velocityCallback) {
 		onAnimationFrameCallback = callback;
-		xr.setAnimationLoop(callback);
+		xr.setAnimationLoop(callback, velocityCallback);
 		callback === null ? animation.stop() : animation.start();
 	};
 	xr.addEventListener('sessionstart', onXRSessionStart);
@@ -18094,10 +18426,15 @@ function WebGLRenderer(parameters = {}) {
 
 		currentRenderState.setupLights(_this.physicallyCorrectLights);
 		if (camera.isArrayCamera) {
-			const cameras = camera.cameras;
-			for (let i = 0, l = cameras.length; i < l; i++) {
-				const camera2 = cameras[i];
-				renderScene(currentRenderList, scene, camera2, camera2.viewport);
+			if (xr.enabled && xr.isMultiview) {
+				textures.deferTextureUploads = true;
+				renderScene(currentRenderList, scene, camera, camera.cameras[0].viewport);
+			} else {
+				const cameras = camera.cameras;
+				for (let i = 0, l = cameras.length; i < l; i++) {
+					const camera2 = cameras[i];
+					renderScene(currentRenderList, scene, camera2, camera2.viewport);
+				}
 			}
 		} else {
 			renderScene(currentRenderList, scene, camera);
@@ -18118,7 +18455,7 @@ function WebGLRenderer(parameters = {}) {
 		//
 
 		if (scene.isScene === true) scene.onAfterRender(_this, scene, camera);
-
+		textures.runDeferredUploads();
 		// _gl.finish();
 
 		bindingStates.resetDefaultState();
@@ -18262,6 +18599,9 @@ function WebGLRenderer(parameters = {}) {
 	}
 	function renderObject(object, scene, camera, geometry, material, group) {
 		object.onBeforeRender(_this, scene, camera, geometry, material, group);
+		if (_this.xr && _this.xr.spaceWarpOnBeforeRender) {
+			material = _this.xr.spaceWarpOnBeforeRender(object, material);
+		}
 		object.modelViewMatrix.multiplyMatrices(camera.matrixWorldInverse, object.matrixWorld);
 		object.normalMatrix.getNormalMatrix(object.modelViewMatrix);
 		material.onBeforeRender(_this, scene, camera, geometry, object, group);
@@ -18275,6 +18615,9 @@ function WebGLRenderer(parameters = {}) {
 			material.side = DoubleSide;
 		} else {
 			_this.renderBufferDirect(camera, scene, geometry, material, object, group);
+		}
+		if (_this.xr && _this.xr.spaceWarpOnAfterRender) {
+			_this.xr.spaceWarpOnAfterRender(object);
 		}
 		object.onAfterRender(_this, scene, camera, geometry, material, group);
 	}
@@ -18372,6 +18715,7 @@ function WebGLRenderer(parameters = {}) {
 		materialProperties.vertexAlphas = parameters.vertexAlphas;
 		materialProperties.vertexTangents = parameters.vertexTangents;
 		materialProperties.toneMapping = parameters.toneMapping;
+		materialProperties.numMultiviewViews = parameters.numMultiviewViews;
 	}
 	function setProgram(camera, scene, geometry, material, object) {
 		if (scene.isScene !== true) scene = _emptyScene; // scene could be a Mesh, Line, Points, ...
@@ -18387,6 +18731,7 @@ function WebGLRenderer(parameters = {}) {
 		const morphNormals = !!geometry.morphAttributes.normal;
 		const morphColors = !!geometry.morphAttributes.color;
 		const toneMapping = material.toneMapped ? _this.toneMapping : NoToneMapping;
+		const numMultiviewViews = _currentRenderTarget && _currentRenderTarget.isWebGLMultiviewRenderTarget ? _currentRenderTarget.numViews : 0;
 		const morphAttribute = geometry.morphAttributes.position || geometry.morphAttributes.normal || geometry.morphAttributes.color;
 		const morphTargetsCount = morphAttribute !== undefined ? morphAttribute.length : 0;
 		const materialProperties = properties.get(material);
@@ -18438,6 +18783,8 @@ function WebGLRenderer(parameters = {}) {
 				needsProgramChange = true;
 			} else if (capabilities.isWebGL2 === true && materialProperties.morphTargetsCount !== morphTargetsCount) {
 				needsProgramChange = true;
+			} else if (materialProperties.numMultiviewViews !== numMultiviewViews) {
+				needsProgramChange = true;
 			}
 		} else {
 			needsProgramChange = true;
@@ -18465,7 +18812,11 @@ function WebGLRenderer(parameters = {}) {
 			refreshMaterial = true;
 		}
 		if (refreshProgram || _currentCamera !== camera) {
-			p_uniforms.setValue(_gl, 'projectionMatrix', camera.projectionMatrix);
+			if (program.numMultiviewViews > 0) {
+				multiview.updateCameraProjectionMatricesUniform(camera, p_uniforms);
+			} else {
+				p_uniforms.setValue(_gl, 'projectionMatrix', camera.projectionMatrix);
+			}
 			if (capabilities.logarithmicDepthBuffer) {
 				p_uniforms.setValue(_gl, 'logDepthBufFC', 2.0 / (Math.log(camera.far + 1.0) / Math.LN2));
 			}
@@ -18493,7 +18844,11 @@ function WebGLRenderer(parameters = {}) {
 				p_uniforms.setValue(_gl, 'isOrthographic', camera.isOrthographicCamera === true);
 			}
 			if (material.isMeshPhongMaterial || material.isMeshToonMaterial || material.isMeshLambertMaterial || material.isMeshBasicMaterial || material.isMeshStandardMaterial || material.isShaderMaterial || material.isShadowMaterial || object.isSkinnedMesh) {
-				p_uniforms.setValue(_gl, 'viewMatrix', camera.matrixWorldInverse);
+				if (program.numMultiviewViews > 0) {
+					multiview.updateCameraViewMatricesUniform(camera, p_uniforms);
+				} else {
+					p_uniforms.setValue(_gl, 'viewMatrix', camera.matrixWorldInverse);
+				}
 			}
 		}
 
@@ -18563,8 +18918,12 @@ function WebGLRenderer(parameters = {}) {
 
 		// common matrices
 
-		p_uniforms.setValue(_gl, 'modelViewMatrix', object.modelViewMatrix);
-		p_uniforms.setValue(_gl, 'normalMatrix', object.normalMatrix);
+		if (program.numMultiviewViews > 0) {
+			multiview.updateObjectMatricesUniforms(object, camera, p_uniforms);
+		} else {
+			p_uniforms.setValue(_gl, 'modelViewMatrix', object.modelViewMatrix);
+			p_uniforms.setValue(_gl, 'normalMatrix', object.normalMatrix);
+		}
 		p_uniforms.setValue(_gl, 'modelMatrix', object.matrixWorld);
 
 		// UBOs
@@ -18615,15 +18974,13 @@ function WebGLRenderer(parameters = {}) {
 		properties.get(renderTarget.depthTexture).__webglTexture = depthTexture;
 		const renderTargetProperties = properties.get(renderTarget);
 		renderTargetProperties.__hasExternalTextures = true;
-		if (renderTargetProperties.__hasExternalTextures) {
-			renderTargetProperties.__autoAllocateDepthBuffer = depthTexture === undefined;
-			if (!renderTargetProperties.__autoAllocateDepthBuffer) {
-				// The multisample_render_to_texture extension doesn't work properly if there
-				// are midframe flushes and an external depth buffer. Disable use of the extension.
-				if (extensions.has('WEBGL_multisampled_render_to_texture') === true) {
-					console.warn('THREE.WebGLRenderer: Render-to-texture extension was disabled because an external texture was provided');
-					renderTargetProperties.__useRenderToTexture = false;
-				}
+		renderTargetProperties.__autoAllocateDepthBuffer = depthTexture === undefined;
+		if (!renderTargetProperties.__autoAllocateDepthBuffer && !_currentRenderTarget.isWebGLMultiviewRenderTarget) {
+			// The multisample_render_to_texture extension doesn't work properly if there
+			// are midframe flushes and an external depth buffer. Disable use of the extension.
+			if (extensions.has('WEBGL_multisampled_render_to_texture') === true) {
+				console.warn('THREE.WebGLRenderer: Render-to-texture extension was disabled because an external texture was provided');
+				renderTargetProperties.__useRenderToTexture = false;
 			}
 		}
 	};
@@ -19716,25 +20073,6 @@ class Skeleton {
 	}
 }
 
-class InstancedBufferAttribute extends BufferAttribute {
-	constructor(array, itemSize, normalized, meshPerAttribute = 1) {
-		super(array, itemSize, normalized);
-		this.isInstancedBufferAttribute = true;
-		this.meshPerAttribute = meshPerAttribute;
-	}
-	copy(source) {
-		super.copy(source);
-		this.meshPerAttribute = source.meshPerAttribute;
-		return this;
-	}
-	toJSON() {
-		const data = super.toJSON();
-		data.meshPerAttribute = this.meshPerAttribute;
-		data.isInstancedBufferAttribute = true;
-		return data;
-	}
-}
-
 const _instanceLocalMatrix = /*@__PURE__*/new Matrix4();
 const _instanceWorldMatrix = /*@__PURE__*/new Matrix4();
 const _instanceIntersects = [];
@@ -19746,6 +20084,7 @@ class InstancedMesh extends Mesh {
 		this.isInstancedMesh = true;
 		this.instanceMatrix = new InstancedBufferAttribute(new Float32Array(count * 16), 16);
 		this.instanceColor = null;
+		this.previousInstanceMatrix = null;
 		this.count = count;
 		this.frustumCulled = false;
 		for (let i = 0; i < count; i++) {
@@ -32688,6 +33027,7 @@ exports.Vector2 = Vector2;
 exports.Vector3 = Vector3;
 exports.Vector4 = Vector4;
 exports.VectorKeyframeTrack = VectorKeyframeTrack;
+exports.VelocityMaterial = VelocityMaterial;
 exports.VideoTexture = VideoTexture;
 exports.WebGL1Renderer = WebGL1Renderer;
 exports.WebGL3DRenderTarget = WebGL3DRenderTarget;
@@ -32706,3 +33046,4 @@ exports.ZeroSlopeEnding = ZeroSlopeEnding;
 exports.ZeroStencilOp = ZeroStencilOp;
 exports._SRGBAFormat = _SRGBAFormat;
 exports.sRGBEncoding = sRGBEncoding;
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoidGhyZWUuY2pzIiwic291cmNlcyI6W10sInNvdXJjZXNDb250ZW50IjpbXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IiJ9
