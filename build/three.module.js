@@ -25543,7 +25543,6 @@ class VelocityMaterial extends Material {
 		super();
 
 		this.isVelocityMaterial = true;
-
 		this.type = 'VelocityMaterial';
 
 		this.previousModelMatrix = new Matrix4();
