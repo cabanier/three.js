@@ -151,14 +151,45 @@
 
 				//
 
-				const geometry = new THREE.BufferGeometry().setFromPoints( [ new THREE.Vector3( 0, 0, 0 ), new THREE.Vector3( 0, 0, - 1 ) ] );
+				function addRay(controller, inputSource) {
+					const geometry = new THREE.BufferGeometry().setFromPoints( [ new THREE.Vector3( 0, 0, 0 ), new THREE.Vector3( 0, 0, - 1 ) ] );
 
-				const line = new THREE.Line( geometry );
-				line.name = 'line';
-				line.scale.z = 5;
+					if ( inputSource.targetRayMode === 'tracked-pointer' ) {
 
-				controller1.add( line.clone() );
-				controller2.add( line.clone() );
+						const line = new THREE.Line( geometry );
+						line.name = 'line';
+						line.scale.z = 5;
+
+						controller.add( line );
+
+					} else if ( inputSource.targetRayMode === 'transient-pointer' ) {
+
+						const circleGeometry = new THREE.TorusGeometry( 0.005, 0.001, 16, 16 );
+						const material = new THREE.MeshBasicMaterial( { color: 0xffffff } );
+						const circle = new THREE.Mesh( circleGeometry, material );
+						circle.name = 'circle';
+
+						controller.add( circle );
+
+					}
+				}
+
+				function removeRay(controller) {
+					controller.children.pop();
+				}
+
+				controller1.addEventListener( 'connected', ( event ) => {
+					addRay(controller1, event.data);
+				});
+				controller1.addEventListener( 'disconnected', ( event ) => {
+					removeRay(controller1);
+				});
+				controller2.addEventListener( 'connected', ( event ) => {
+					addRay(controller2, event.data);
+				});
+				controller2.addEventListener( 'disconnected', ( event ) => {
+					removeRay(controller2);
+				});
 
 				raycaster = new THREE.Raycaster();
 
@@ -239,6 +270,20 @@
 				if ( controller.userData.selected !== undefined ) return;
 
 				const line = controller.getObjectByName( 'line' );
+				const circle = controller.getObjectByName( 'circle' );
+
+				if ( ( line === undefined ) || ( circle === undefined ) ){
+
+					return;
+
+				}
+
+				if ( controller.userData.targetRayMode === 'transient-pointer' ) {
+
+					return;
+
+				}
+
 				const intersections = getIntersections( controller );
 
 				if ( intersections.length > 0 ) {

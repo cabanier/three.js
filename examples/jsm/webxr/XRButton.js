@@ -60,7 +60,7 @@ class XRButton {
 						optionalFeatures: [
 							'local-floor',
 							'bounded-floor',
-							'hand-tracking',
+							//'hand-tracking',
 							'layers'
 						]
 					};
