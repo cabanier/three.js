@@ -1,9 +1,9 @@
 import { Texture } from './Texture.js';
-import { NearestFilter, UnsignedIntType, UnsignedInt248Type, DepthFormat, DepthStencilFormat } from '../constants.js';
+import { NearestFilter, NoColorSpace, UnsignedIntType, UnsignedInt248Type, DepthFormat, DepthStencilFormat } from '../constants.js';
 
 class DepthTexture extends Texture {
 
-	constructor( width, height, type, mapping, wrapS, wrapT, magFilter, minFilter, anisotropy, format ) {
+	constructor( width, height, type, mapping, wrapS, wrapT, magFilter, minFilter, anisotropy, format, isTextureArray ) {
 
 		format = format !== undefined ? format : DepthFormat;
 
@@ -16,7 +16,7 @@ class DepthTexture extends Texture {
 		if ( type === undefined && format === DepthFormat ) type = UnsignedIntType;
 		if ( type === undefined && format === DepthStencilFormat ) type = UnsignedInt248Type;
 
-		super( null, mapping, wrapS, wrapT, magFilter, minFilter, format, type, anisotropy );
+		super( null, mapping, wrapS, wrapT, magFilter, minFilter, format, type, anisotropy, NoColorSpace, isTextureArray );
 
 		this.isDepthTexture = true;
 

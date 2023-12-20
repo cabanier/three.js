@@ -1206,50 +1206,82 @@ class WebGLRenderer {
 
 			if ( this.info.autoReset === true ) this.info.reset();
 
-
-			//
-
-			background.render( currentRenderList, scene );
-
-			// render scene
-
-			currentRenderState.setupLights( _this._useLegacyLights );
-
-			if ( camera.isArrayCamera ) {
+			if ( _currentRenderTarget && _currentRenderTarget.isTextureArray && camera.isArrayCamera && camera.cameras.length > 1 ) {
 
 				const cameras = camera.cameras;
 
 				for ( let i = 0, l = cameras.length; i < l; i ++ ) {
 
 					const camera2 = cameras[ i ];
+					_currentRenderTarget.textureArrayIndex = i;
 
-					renderScene( currentRenderList, scene, camera2, camera2.viewport );
+					if (i > 0) {
+
+						this.setRenderTarget( _currentRenderTarget );
+
+					}
+					
+					background.render( currentRenderList, scene );	
+					
+					currentRenderState.setupLights( _this._useLegacyLights );
+
+					renderScene( currentRenderList, scene, camera2, camera2.viewport );		
+
+					textures.updateMultisampleRenderTarget( _currentRenderTarget );
+
+					if ( scene.isScene === true ) scene.onAfterRender( _this, scene, camera );
 
 				}
 
+				_currentRenderTarget.textureArrayIndex = 0;
+
 			} else {
 
-				renderScene( currentRenderList, scene, camera );
+				//
 
+				background.render( currentRenderList, scene );
+
+				// render scene
+
+				currentRenderState.setupLights( _this._useLegacyLights );
+
+				if ( camera.isArrayCamera ) {
+
+					const cameras = camera.cameras;
+
+					for ( let i = 0, l = cameras.length; i < l; i ++ ) {
+
+						const camera2 = cameras[ i ];				
+
+						renderScene( currentRenderList, scene, camera2, camera2.viewport );
+
+					}
+
+				} else {
+
+					renderScene( currentRenderList, scene, camera );
+
+				}
+
+				//
+
+				if ( _currentRenderTarget !== null ) {
+
+					// resolve multisample renderbuffers to a single-sample texture if necessary
+
+					textures.updateMultisampleRenderTarget( _currentRenderTarget );
+
+					// Generate mipmap if we're using any kind of mipmap filtering
+
+					textures.updateRenderTargetMipmap( _currentRenderTarget );
+
+				}
+
+				//
+
+				if ( scene.isScene === true ) scene.onAfterRender( _this, scene, camera );
+				
 			}
-
-			//
-
-			if ( _currentRenderTarget !== null ) {
-
-				// resolve multisample renderbuffers to a single-sample texture if necessary
-
-				textures.updateMultisampleRenderTarget( _currentRenderTarget );
-
-				// Generate mipmap if we're using any kind of mipmap filtering
-
-				textures.updateRenderTargetMipmap( _currentRenderTarget );
-
-			}
-
-			//
-
-			if ( scene.isScene === true ) scene.onAfterRender( _this, scene, camera );
 
 			// _gl.finish();
 
@@ -2295,7 +2327,7 @@ class WebGLRenderer {
 			} else if ( isRenderTarget3D ) {
 
 				const textureProperties = properties.get( renderTarget.texture );
-				const layer = activeCubeFace || 0;
+				const layer = activeCubeFace || renderTarget.textureArrayIndex || 0;
 				_gl.framebufferTextureLayer( _gl.FRAMEBUFFER, _gl.COLOR_ATTACHMENT0, textureProperties.__webglTexture, activeMipmapLevel || 0, layer );
 
 			}

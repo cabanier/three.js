@@ -8,6 +8,7 @@ function WebGLTextures( _gl, extensions, state, properties, capabilities, utils,
 
 	const isWebGL2 = capabilities.isWebGL2;
 	const multisampledRTTExt = extensions.has( 'WEBGL_multisampled_render_to_texture' ) ? extensions.get( 'WEBGL_multisampled_render_to_texture' ) : null;
+	const multiviewExt = extensions.has( 'OCULUS_multiview' ) ? extensions.get( 'OCULUS_multiview' ) : null;
 	const supportsInvalidateFramebuffer = typeof navigator === 'undefined' ? false : /OculusBrowser/g.test( navigator.userAgent );
 
 	const _videoTextures = new WeakMap();
@@ -489,7 +490,7 @@ function WebGLTextures( _gl, extensions, state, properties, capabilities, utils,
 
 		}
 
-		state.bindTexture( _gl.TEXTURE_2D, textureProperties.__webglTexture, _gl.TEXTURE0 + slot );
+		state.bindTexture( texture.isDataArrayTexture ? _gl.TEXTURE_2D_ARRAY : _gl.TEXTURE_2D, textureProperties.__webglTexture, _gl.TEXTURE0 + slot );
 
 	}
 
@@ -1381,6 +1382,10 @@ function WebGLTextures( _gl, extensions, state, properties, capabilities, utils,
 
 			multisampledRTTExt.framebufferTexture2DMultisampleEXT( _gl.FRAMEBUFFER, attachment, textureTarget, properties.get( texture ).__webglTexture, 0, getRenderTargetSamples( renderTarget ) );
 
+		} else if ( renderTarget.isTextureArray && renderTarget.samples > 1) {
+
+			multiviewExt.framebufferTextureMultisampleMultiviewOVR( _gl.FRAMEBUFFER, attachment, properties.get( texture ).__webglTexture, 0, getRenderTargetSamples( renderTarget ), renderTarget.textureArrayIndex, 1 );
+			
 		} else if ( textureTarget === _gl.TEXTURE_2D || ( textureTarget >= _gl.TEXTURE_CUBE_MAP_POSITIVE_X && textureTarget <= _gl.TEXTURE_CUBE_MAP_NEGATIVE_Z ) ) { // see #24753
 
 			_gl.framebufferTexture2D( _gl.FRAMEBUFFER, attachment, textureTarget, properties.get( texture ).__webglTexture, level );
@@ -1531,6 +1536,11 @@ function WebGLTextures( _gl, extensions, state, properties, capabilities, utils,
 
 				multisampledRTTExt.framebufferTexture2DMultisampleEXT( _gl.FRAMEBUFFER, _gl.DEPTH_ATTACHMENT, _gl.TEXTURE_2D, webglDepthTexture, 0, samples );
 
+
+			} else if ( renderTarget.isTextureArray && renderTarget.samples > 1) {
+
+				multiviewExt.framebufferTextureMultisampleMultiviewOVR( _gl.FRAMEBUFFER, _gl.DEPTH_ATTACHMENT, webglDepthTexture, 0, samples, renderTarget.textureArrayIndex, 1 );
+				
 			} else {
 
 				_gl.framebufferTexture2D( _gl.FRAMEBUFFER, _gl.DEPTH_ATTACHMENT, _gl.TEXTURE_2D, webglDepthTexture, 0 );
@@ -1540,10 +1550,14 @@ function WebGLTextures( _gl, extensions, state, properties, capabilities, utils,
 		} else if ( renderTarget.depthTexture.format === DepthStencilFormat ) {
 
 			if ( useMultisampledRTT( renderTarget ) ) {
-
+					
 				multisampledRTTExt.framebufferTexture2DMultisampleEXT( _gl.FRAMEBUFFER, _gl.DEPTH_STENCIL_ATTACHMENT, _gl.TEXTURE_2D, webglDepthTexture, 0, samples );
 
-			} else {
+			} else if ( renderTarget.isTextureArray && renderTarget.samples > 1) {
+
+				multiviewExt.framebufferTextureMultisampleMultiviewOVR( _gl.FRAMEBUFFER, _gl.DEPTH_ATTACHMENT, webglDepthTexture, 0, samples, renderTarget.textureArrayIndex, 1 );
+				
+			} else  {
 
 				_gl.framebufferTexture2D( _gl.FRAMEBUFFER, _gl.DEPTH_STENCIL_ATTACHMENT, _gl.TEXTURE_2D, webglDepthTexture, 0 );
 
@@ -1814,7 +1828,7 @@ function WebGLTextures( _gl, extensions, state, properties, capabilities, utils,
 
 		} else {
 
-			let glTextureType = _gl.TEXTURE_2D;
+			let glTextureType = renderTarget.isTextureArray ? _gl.TEXTURE_2D_ARRAY : _gl.TEXTURE_2D;
 
 			if ( renderTarget.isWebGL3DRenderTarget || renderTarget.isWebGLArrayRenderTarget ) {
 

@@ -23,7 +23,7 @@ let _textureId = 0;
 
 class Texture extends EventDispatcher {
 
-	constructor( image = Texture.DEFAULT_IMAGE, mapping = Texture.DEFAULT_MAPPING, wrapS = ClampToEdgeWrapping, wrapT = ClampToEdgeWrapping, magFilter = LinearFilter, minFilter = LinearMipmapLinearFilter, format = RGBAFormat, type = UnsignedByteType, anisotropy = Texture.DEFAULT_ANISOTROPY, colorSpace = NoColorSpace ) {
+	constructor( image = Texture.DEFAULT_IMAGE, mapping = Texture.DEFAULT_MAPPING, wrapS = ClampToEdgeWrapping, wrapT = ClampToEdgeWrapping, magFilter = LinearFilter, minFilter = LinearMipmapLinearFilter, format = RGBAFormat, type = UnsignedByteType, anisotropy = Texture.DEFAULT_ANISOTROPY, colorSpace = NoColorSpace, isTextureArray = false ) {
 
 		super();
 
@@ -77,6 +77,7 @@ class Texture extends EventDispatcher {
 
 		}
 
+		this.isDataArrayTexture = isTextureArray;
 
 		this.userData = {};
 
@@ -147,6 +148,7 @@ class Texture extends EventDispatcher {
 		this.flipY = source.flipY;
 		this.unpackAlignment = source.unpackAlignment;
 		this.colorSpace = source.colorSpace;
+		this.isDataArrayTexture = source.isDataArrayTexture;
 
 		this.userData = JSON.parse( JSON.stringify( source.userData ) );
 
@@ -193,6 +195,7 @@ class Texture extends EventDispatcher {
 			internalFormat: this.internalFormat,
 			type: this.type,
 			colorSpace: this.colorSpace,
+			isDataArrayTexture: this.isDataArrayTexture,
 
 			minFilter: this.minFilter,
 			magFilter: this.magFilter,

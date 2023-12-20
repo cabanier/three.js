@@ -44,10 +44,11 @@ class RenderTarget extends EventDispatcher {
 			depthBuffer: true,
 			stencilBuffer: false,
 			depthTexture: null,
-			samples: 0
+			samples: 0,
+			isTextureArray: false
 		}, options );
 
-		this.texture = new Texture( image, options.mapping, options.wrapS, options.wrapT, options.magFilter, options.minFilter, options.format, options.type, options.anisotropy, options.colorSpace );
+		this.texture = new Texture( image, options.mapping, options.wrapS, options.wrapT, options.magFilter, options.minFilter, options.format, options.type, options.anisotropy, options.colorSpace, options.isTextureArray );
 		this.texture.isRenderTargetTexture = true;
 
 		this.texture.flipY = false;
@@ -56,6 +57,8 @@ class RenderTarget extends EventDispatcher {
 
 		this.depthBuffer = options.depthBuffer;
 		this.stencilBuffer = options.stencilBuffer;
+		this.isTextureArray = options.isTextureArray;
+		this.textureArrayIndex = 0;
 
 		this.depthTexture = options.depthTexture;
 
