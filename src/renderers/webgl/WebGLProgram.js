@@ -650,6 +650,7 @@ function WebGLProgram( renderer, cacheKey, parameters, bindingStates ) {
 				'#define viewMatrix viewMatrices[gl_ViewID_OVR]',
 				'#define projectionMatrix projectionMatrices[gl_ViewID_OVR]',
 
+				'#define USE_OVR_MULTIVIEW',
 				'#define getLightPosition(t) (gl_ViewID_OVR == 0u ? t.position : t.altPosition)',
 				'#define getLightDirection(t) (gl_ViewID_OVR == 0u ? t.direction : t.altDirection)'
 
@@ -851,6 +852,7 @@ function WebGLProgram( renderer, cacheKey, parameters, bindingStates ) {
 				'uniform mat4 viewMatrices[2];',
 				'#define viewMatrix viewMatrices[gl_ViewID_OVR]',
 
+				'#define USE_OVR_MULTIVIEW',
 				'#define getLightPosition(t) (gl_ViewID_OVR == 0u ? t.position : t.altPosition)',
 				'#define getLightDirection(t) (gl_ViewID_OVR == 0u ? t.direction : t.altDirection)'
 

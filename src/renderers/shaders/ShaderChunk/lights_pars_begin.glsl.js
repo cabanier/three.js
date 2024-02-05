@@ -95,6 +95,10 @@ float getSpotAttenuation( const in float coneCosine, const in float penumbraCosi
 	struct DirectionalLight {
 		vec3 direction;
 		vec3 color;
+
+		#ifdef USE_OVR_MULTIVIEW
+			vec3 altDirection;
+		#endif
 	};
 
 	uniform DirectionalLight directionalLights[ NUM_DIR_LIGHTS ];
@@ -117,6 +121,10 @@ float getSpotAttenuation( const in float coneCosine, const in float penumbraCosi
 		vec3 color;
 		float distance;
 		float decay;
+
+		#ifdef USE_OVR_MULTIVIEW
+			vec3 altPosition;
+		#endif
 	};
 
 	uniform PointLight pointLights[ NUM_POINT_LIGHTS ];
@@ -149,6 +157,11 @@ float getSpotAttenuation( const in float coneCosine, const in float penumbraCosi
 		float decay;
 		float coneCos;
 		float penumbraCos;
+
+		#ifdef USE_OVR_MULTIVIEW
+			vec3 altPosition;
+			vec3 altDirection;
+		#endif
 	};
 
 	uniform SpotLight spotLights[ NUM_SPOT_LIGHTS ];
@@ -191,6 +204,10 @@ float getSpotAttenuation( const in float coneCosine, const in float penumbraCosi
 		vec3 position;
 		vec3 halfWidth;
 		vec3 halfHeight;
+
+		#ifdef USE_OVR_MULTIVIEW
+			vec3 altPosition;
+		#endif
 	};
 
 	// Pre-computed values of LinearTransformedCosine approximation of BRDF
@@ -209,6 +226,10 @@ float getSpotAttenuation( const in float coneCosine, const in float penumbraCosi
 		vec3 direction;
 		vec3 skyColor;
 		vec3 groundColor;
+
+		#ifdef USE_OVR_MULTIVIEW
+			vec3 altDirection;
+		#endif
 	};
 
 	uniform HemisphereLight hemisphereLights[ NUM_HEMI_LIGHTS ];
