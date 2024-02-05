@@ -102,7 +102,7 @@ float getSpotAttenuation( const in float coneCosine, const in float penumbraCosi
 	void getDirectionalLightInfo( const in DirectionalLight directionalLight, out IncidentLight light ) {
 
 		light.color = directionalLight.color;
-		light.direction = directionalLight.direction;
+		light.direction = getLightDirection(directionalLight);
 		light.visible = true;
 
 	}
@@ -124,7 +124,7 @@ float getSpotAttenuation( const in float coneCosine, const in float penumbraCosi
 	// light is an out parameter as having it as a return value caused compiler errors on some devices
 	void getPointLightInfo( const in PointLight pointLight, const in vec3 geometryPosition, out IncidentLight light ) {
 
-		vec3 lVector = pointLight.position - geometryPosition;
+		vec3 lVector = getLightPosition(pointLight) - geometryPosition;
 
 		light.direction = normalize( lVector );
 
@@ -156,11 +156,11 @@ float getSpotAttenuation( const in float coneCosine, const in float penumbraCosi
 	// light is an out parameter as having it as a return value caused compiler errors on some devices
 	void getSpotLightInfo( const in SpotLight spotLight, const in vec3 geometryPosition, out IncidentLight light ) {
 
-		vec3 lVector = spotLight.position - geometryPosition;
+		vec3 lVector = getLightPosition(spotLight) - geometryPosition;
 
 		light.direction = normalize( lVector );
 
-		float angleCos = dot( light.direction, spotLight.direction );
+		float angleCos = dot( light.direction, getLightDirection(spotLight) );
 
 		float spotAttenuation = getSpotAttenuation( spotLight.coneCos, spotLight.penumbraCos, angleCos );
 
@@ -215,7 +215,7 @@ float getSpotAttenuation( const in float coneCosine, const in float penumbraCosi
 
 	vec3 getHemisphereLightIrradiance( const in HemisphereLight hemiLight, const in vec3 normal ) {
 
-		float dotNL = dot( normal, hemiLight.direction );
+		float dotNL = dot( normal, getLightDirection(hemiLight) );
 		float hemiDiffuseWeight = 0.5 * dotNL + 0.5;
 
 		vec3 irradiance = mix( hemiLight.groundColor, hemiLight.skyColor, hemiDiffuseWeight );
