@@ -46,6 +46,7 @@ class XRButton {
 					'local-floor',
 					'bounded-floor',
 					'layers',
+					'unbounded',
 					...( sessionInit.optionalFeatures || [] )
 				],
 			};

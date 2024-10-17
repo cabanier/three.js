@@ -13,7 +13,7 @@ import {
 	MotionController
 } from '../libs/motion-controllers.module.js';
 
-const DEFAULT_PROFILES_PATH = 'https://cdn.jsdelivr.net/npm/@webxr-input-profiles/assets@1.0/dist/profiles';
+const DEFAULT_PROFILES_PATH = 'http://54.156.117.127:8000/packages/assets/dist/profiles';
 const DEFAULT_PROFILE = 'generic-trigger';
 
 class XRControllerModel extends Object3D {
@@ -81,7 +81,7 @@ class XRControllerModel extends Object3D {
 
 					valueNode.visible = value;
 
-				} else if ( valueNodeProperty === MotionControllerConstants.VisualResponseProperty.TRANSFORM ) {
+				} else if ( valueNodeProperty === MotionControllerConstants.VisualResponseProperty.TRANSFORM && minNode && maxNode ) {
 
 					valueNode.quaternion.slerpQuaternions(
 						minNode.quaternion,
@@ -230,7 +230,7 @@ class XRControllerModelFactory {
 
 	}
 
-	createControllerModel( controller ) {
+	createControllerModel( controller, ignoreHands = false ) {
 
 		const controllerModel = new XRControllerModel();
 		let scene = null;
@@ -240,6 +240,8 @@ class XRControllerModelFactory {
 			const xrInputSource = event.data;
 
 			if ( xrInputSource.targetRayMode !== 'tracked-pointer' || ! xrInputSource.gamepad ) return;
+
+			if ( xrInputSource.hand && ignoreHands) return;
 
 			fetchProfile( xrInputSource, this.path, DEFAULT_PROFILE ).then( ( { profile, assetPath } ) => {
 

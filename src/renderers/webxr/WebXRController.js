@@ -141,7 +141,7 @@ class WebXRController {
 
 	}
 
-	update( inputSource, frame, referenceSpace ) {
+	update( inputSource, frame, referenceSpace, primaryInput ) {
 
 		let inputPose = null;
 		let gripPose = null;
@@ -156,6 +156,7 @@ class WebXRController {
 			if ( hand && inputSource.hand ) {
 
 				handPose = true;
+				hand.visible = true;
 
 				for ( const inputjoint of inputSource.hand.values() ) {
 
@@ -188,23 +189,27 @@ class WebXRController {
 				const distanceToPinch = 0.02;
 				const threshold = 0.005;
 
-				if ( hand.inputState.pinching && distance > distanceToPinch + threshold ) {
+				if ( primaryInput ) {
 
-					hand.inputState.pinching = false;
-					this.dispatchEvent( {
-						type: 'pinchend',
-						handedness: inputSource.handedness,
-						target: this
-					} );
+					if ( hand.inputState.pinching && distance > distanceToPinch + threshold ) {
 
-				} else if ( ! hand.inputState.pinching && distance <= distanceToPinch - threshold ) {
+						hand.inputState.pinching = false;
+						this.dispatchEvent( {
+							type: 'pinchend',
+							handedness: inputSource.handedness,
+							target: this
+						} );
 
-					hand.inputState.pinching = true;
-					this.dispatchEvent( {
-						type: 'pinchstart',
-						handedness: inputSource.handedness,
-						target: this
-					} );
+					} else if ( ! hand.inputState.pinching && distance <= distanceToPinch - threshold ) {
+
+						hand.inputState.pinching = true;
+						this.dispatchEvent( {
+							type: 'pinchstart',
+							handedness: inputSource.handedness,
+							target: this
+						} );
+
+					}
 
 				}
 
@@ -212,6 +217,7 @@ class WebXRController {
 
 				if ( grip !== null && inputSource.gripSpace ) {
 
+					grip.visible = true;
 					gripPose = frame.getPose( inputSource.gripSpace, referenceSpace );
 
 					if ( gripPose !== null ) {
@@ -248,7 +254,7 @@ class WebXRController {
 
 			}
 
-			if ( targetRay !== null ) {
+			if ( primaryInput && targetRay !== null ) {
 
 				inputPose = frame.getPose( inputSource.targetRaySpace, referenceSpace );
 
@@ -293,24 +299,11 @@ class WebXRController {
 
 			}
 
-
 		}
 
-		if ( targetRay !== null ) {
+		if ( primaryInput && targetRay !== null ) {
 
 			targetRay.visible = ( inputPose !== null );
-
-		}
-
-		if ( grip !== null ) {
-
-			grip.visible = ( gripPose !== null );
-
-		}
-
-		if ( hand !== null ) {
-
-			hand.visible = ( handPose !== null );
 
 		}
 

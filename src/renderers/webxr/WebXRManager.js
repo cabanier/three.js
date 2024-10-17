@@ -44,6 +44,7 @@ class WebXRManager extends EventDispatcher {
 
 		const controllers = [];
 		const controllerInputSources = [];
+		const controllerTrackedSources = [];
 
 		const currentSize = new Vector2();
 		let currentPixelRatio = null;
@@ -152,14 +153,25 @@ class WebXRManager extends EventDispatcher {
 			session.removeEventListener( 'squeezeend', onSessionEvent );
 			session.removeEventListener( 'end', onSessionEnd );
 			session.removeEventListener( 'inputsourceschange', onInputSourcesChange );
+			session.removeEventListener( 'trackedsourceschange', onTrackedSourcesChange );
 
 			for ( let i = 0; i < controllers.length; i ++ ) {
 
-				const inputSource = controllerInputSources[ i ];
+				let inputSource = controllerInputSources[ i ];
 
-				if ( inputSource === null ) continue;
+				if ( inputSource === null ) {
 
-				controllerInputSources[ i ] = null;
+					inputSource = controllerTrackedSources[ i ];
+
+					if ( inputSource === null ) continue;
+
+					controllerTrackedSources[ i ] = null;
+
+				} else {
+
+					controllerInputSources[ i ] = null;
+
+				}
 
 				controllers[ i ].disconnect( inputSource );
 
@@ -269,6 +281,7 @@ class WebXRManager extends EventDispatcher {
 				session.addEventListener( 'squeezeend', onSessionEvent );
 				session.addEventListener( 'end', onSessionEnd );
 				session.addEventListener( 'inputsourceschange', onInputSourcesChange );
+				session.addEventListener( 'trackedsourceschange', onTrackedSourcesChange );
 
 				if ( attributes.xrCompatible !== true ) {
 
@@ -385,18 +398,18 @@ class WebXRManager extends EventDispatcher {
 
 		};
 
-		function onInputSourcesChange( event ) {
+		function onSourcesChange( event, sources ) {
 
 			// Notify disconnected
 
 			for ( let i = 0; i < event.removed.length; i ++ ) {
 
 				const inputSource = event.removed[ i ];
-				const index = controllerInputSources.indexOf( inputSource );
+				const index = sources.indexOf( inputSource );
 
 				if ( index >= 0 ) {
 
-					controllerInputSources[ index ] = null;
+					sources[ index ] = null;
 					controllers[ index ].disconnect( inputSource );
 
 				}
@@ -409,7 +422,7 @@ class WebXRManager extends EventDispatcher {
 
 				const inputSource = event.added[ i ];
 
-				let controllerIndex = controllerInputSources.indexOf( inputSource );
+				let controllerIndex = sources.indexOf( inputSource );
 
 				if ( controllerIndex === - 1 ) {
 
@@ -417,15 +430,15 @@ class WebXRManager extends EventDispatcher {
 
 					for ( let i = 0; i < controllers.length; i ++ ) {
 
-						if ( i >= controllerInputSources.length ) {
+						if ( i >= sources.length ) {
 
-							controllerInputSources.push( inputSource );
+							sources.push( inputSource );
 							controllerIndex = i;
 							break;
 
-						} else if ( controllerInputSources[ i ] === null ) {
+						} else if ( sources[ i ] === null ) {
 
-							controllerInputSources[ i ] = inputSource;
+							sources[ i ] = inputSource;
 							controllerIndex = i;
 							break;
 
@@ -448,6 +461,18 @@ class WebXRManager extends EventDispatcher {
 				}
 
 			}
+
+		}
+
+		function onInputSourcesChange( event ) {
+
+			onSourcesChange( event, controllerInputSources );
+
+		}
+
+		function onTrackedSourcesChange( event ) {
+
+			onSourcesChange( event, controllerTrackedSources );
 
 		}
 
@@ -798,13 +823,22 @@ class WebXRManager extends EventDispatcher {
 			for ( let i = 0; i < controllers.length; i ++ ) {
 
 				const inputSource = controllerInputSources[ i ];
+
 				const controller = controllers[ i ];
 
 				if ( inputSource !== null && controller !== undefined ) {
 
-					controller.update( inputSource, frame, customReferenceSpace || referenceSpace );
+					controller.update( inputSource, frame, customReferenceSpace || referenceSpace, true );
 
 				}
+
+				const trackedSource = controllerTrackedSources[ i ];
+
+				if ( trackedSource !== null && controller !== undefined ) {
+
+					controller.update( trackedSource, frame, customReferenceSpace || referenceSpace, false );
+
+				}				
 
 			}
 

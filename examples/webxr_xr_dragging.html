@@ -125,7 +125,7 @@
 				container.appendChild( renderer.domElement );
 
 				document.body.appendChild( XRButton.createButton( renderer, {
-					'optionalFeatures': [ 'depth-sensing' ],
+					'optionalFeatures': [ 'depth-sensing', 'unbounded' ],
 					'depthSensing': { 'usagePreference': [ 'gpu-optimized' ], 'dataFormatPreference': [] }
 				} ) );
 

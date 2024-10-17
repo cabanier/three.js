@@ -26,12 +26,13 @@
 
 			import * as THREE from 'three';
 			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-			import { VRButton } from 'three/addons/webxr/VRButton.js';
+			import { XRButton } from 'three/addons/webxr/XRButton.js';
 			import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
 			import { XRHandModelFactory } from 'three/addons/webxr/XRHandModelFactory.js';
+			import { BoxLineGeometry } from 'three/addons/geometries/BoxLineGeometry.js';
 
 			let container;
-			let camera, scene, renderer;
+			let room, camera, scene, renderer;
 			let hand1, hand2;
 			let controller1, controller2;
 			let controllerGrip1, controllerGrip2;
@@ -54,14 +55,14 @@
 				controls = new OrbitControls( camera, container );
 				controls.target.set( 0, 1.6, 0 );
 				controls.update();
-
-				const floorGeometry = new THREE.PlaneGeometry( 4, 4 );
-				const floorMaterial = new THREE.MeshStandardMaterial( { color: 0x666666 } );
-				const floor = new THREE.Mesh( floorGeometry, floorMaterial );
-				floor.rotation.x = - Math.PI / 2;
-				floor.receiveShadow = true;
-				scene.add( floor );
-
+/*
+				room = new THREE.LineSegments(
+					new BoxLineGeometry( 6, 6, 6, 10, 10, 10 ),
+					new THREE.LineBasicMaterial( { color: 0x808080 } )
+				);
+				room.geometry.translate( 0, 3, 0 );
+				scene.add( room );
+*/
 				scene.add( new THREE.HemisphereLight( 0xbcbcbc, 0xa5a5a5, 3 ) );
 
 				const light = new THREE.DirectionalLight( 0xffffff, 3 );
@@ -86,10 +87,11 @@
 				container.appendChild( renderer.domElement );
 
 				const sessionInit = {
-					requiredFeatures: [ 'hand-tracking' ]
+					requiredFeatures: [ 'hand-tracking' ],
+					optionalFeatures: [ 'unbounded' ]
 				};
 
-				document.body.appendChild( VRButton.createButton( renderer, sessionInit ) );
+				document.body.appendChild( XRButton.createButton( renderer, sessionInit ) );
 
 				// controllers
 
@@ -104,21 +106,21 @@
 
 				// Hand 1
 				controllerGrip1 = renderer.xr.getControllerGrip( 0 );
-				controllerGrip1.add( controllerModelFactory.createControllerModel( controllerGrip1 ) );
+				controllerGrip1.add( controllerModelFactory.createControllerModel( controllerGrip1, true ) );
 				scene.add( controllerGrip1 );
 
 				hand1 = renderer.xr.getHand( 0 );
-				hand1.add( handModelFactory.createHandModel( hand1 ) );
+				hand1.add( handModelFactory.createHandModel( hand1, 'mesh' ) );
 
 				scene.add( hand1 );
 
 				// Hand 2
 				controllerGrip2 = renderer.xr.getControllerGrip( 1 );
-				controllerGrip2.add( controllerModelFactory.createControllerModel( controllerGrip2 ) );
+				controllerGrip2.add( controllerModelFactory.createControllerModel( controllerGrip2, true ) );
 				scene.add( controllerGrip2 );
 
 				hand2 = renderer.xr.getHand( 1 );
-				hand2.add( handModelFactory.createHandModel( hand2 ) );
+				hand2.add( handModelFactory.createHandModel( hand2, 'mesh' ) );
 				scene.add( hand2 );
 
 				//

@@ -397,7 +397,7 @@
 
 			// Hand 1
 			const controllerGrip1 = renderer.xr.getControllerGrip( 0 );
-			controllerGrip1.add( controllerModelFactory.createControllerModel( controllerGrip1 ) );
+			controllerGrip1.add( controllerModelFactory.createControllerModel( controllerGrip1, true ) );
 			scene.add( controllerGrip1 );
 
 			const hand1 = renderer.xr.getHand( 0 );
@@ -407,7 +407,7 @@
 
 			// Hand 2
 			const controllerGrip2 = renderer.xr.getControllerGrip( 1 );
-			controllerGrip2.add( controllerModelFactory.createControllerModel( controllerGrip2 ) );
+			controllerGrip2.add( controllerModelFactory.createControllerModel( controllerGrip2, true ) );
 			scene.add( controllerGrip2 );
 
 			const hand2 = renderer.xr.getHand( 1 );

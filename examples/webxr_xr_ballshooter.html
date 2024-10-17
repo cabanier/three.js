@@ -26,7 +26,7 @@
 			import * as THREE from 'three';
 
 			import { BoxLineGeometry } from 'three/addons/geometries/BoxLineGeometry.js';
-			import { XRButton } from 'three/addons/webxr/XRButton.js';
+			import { ARButton } from 'three/addons/webxr/ARButton.js';
 			import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
 			import { RapierPhysics } from 'three/addons/physics/RapierPhysics.js';
 
@@ -47,7 +47,7 @@
 			function init() {
 
 				scene = new THREE.Scene();
-				scene.background = new THREE.Color( 0x505050 );
+				//scene.background = new THREE.Color( 0x505050 );
 
 				camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.1, 50 );
 				camera.position.set( 0, 1.6, 3 );
@@ -57,7 +57,7 @@
 					new THREE.LineBasicMaterial( { color: 0x808080 } )
 				);
 				room.geometry.translate( 0, 3, 0 );
-				scene.add( room );
+				//scene.add( room );
 
 				scene.add( new THREE.HemisphereLight( 0xbbbbbb, 0x888888, 3 ) );
 
@@ -81,8 +81,8 @@
 				controls.target.y = 1.6;
 				controls.update();
 
-				document.body.appendChild( XRButton.createButton( renderer, {
-					'optionalFeatures': [ 'depth-sensing' ],
+				document.body.appendChild( ARButton.createButton( renderer, {
+					//'optionalFeatures': [ 'depth-sensing' ],
 					'depthSensing': { 'usagePreference': [ 'gpu-optimized' ], 'dataFormatPreference': [] }
 				} ) );
 
