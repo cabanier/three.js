@@ -23,6 +23,7 @@ class WebXRManager extends EventDispatcher {
 		let session = null;
 
 		let framebufferScaleFactor = 1.0;
+		let minimumScaleFactor = 0.6;
 
 		let referenceSpace = null;
 		let referenceSpaceType = 'local-floor';
@@ -200,6 +201,24 @@ class WebXRManager extends EventDispatcher {
 			if ( scope.isPresenting === true ) {
 
 				console.warn( 'THREE.WebXRManager: Cannot change framebuffer scale while presenting.' );
+
+			}
+
+		};
+
+		this.setMinumumViewportScaleFactor = function ( value ) {
+
+			if ( value < 0.125 ) {
+
+				minimumScaleFactor = 0.125;
+
+			} else if ( value > 1 ) {
+
+				minimumScaleFactor = 1;
+
+			} else {
+
+				minimumScaleFactor = value;
 
 			}
 
@@ -717,6 +736,20 @@ class WebXRManager extends EventDispatcher {
 				for ( let i = 0; i < views.length; i ++ ) {
 
 					const view = views[ i ];
+
+					if ( view.recommendedViewportScale ) {
+
+						if ( view.recommendedViewportScale < minimumScaleFactor ) {
+
+							view.requestViewportScale( minimumScaleFactor );
+
+						} else {
+
+							view.requestViewportScale( view.recommendedViewportScale );
+
+						}
+
+					}
 
 					let viewport = null;
 
