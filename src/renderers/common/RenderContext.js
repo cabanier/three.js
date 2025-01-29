@@ -98,6 +98,14 @@ class RenderContext {
 		this.clearStencilValue = 1;
 
 		/**
+		 * Whether the depth and stencil should be skipped during copy operations.
+		 *
+		 * @type {Boolean}
+		 * @default true
+		 */
+		this.skipDepthStencilCopy = false;
+
+		/**
 		 * By default the viewport encloses the entire framebuffer If a smaller
 		 * viewport is manually defined, this property is to `true` by the renderer.
 		 *

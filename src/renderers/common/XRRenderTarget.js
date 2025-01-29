@@ -40,6 +40,14 @@ class XRRenderTarget extends RenderTarget {
 		this.hasExternalTextures = false;
 
 		/**
+		 * Whether the system compositor needs depth textures.
+		 *
+		 * @type {Boolean}
+		 * @default true
+		 */
+		this.needsDepthTexture = true;
+
+		/**
 		 * Whether a depth buffer should automatically be allocated
 		 * for this XR render target or not.
 		 *

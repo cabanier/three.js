@@ -636,6 +636,7 @@ class XRManager extends EventDispatcher {
 					} );
 
 				this._xrRenderTarget.hasExternalTextures = true;
+				this._xrRenderTarget.needsDepthTexture = glBinding.usesDepthValues;
 
 			} else {
 

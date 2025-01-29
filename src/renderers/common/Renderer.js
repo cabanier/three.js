@@ -26,7 +26,7 @@ import { Matrix4 } from '../../math/Matrix4.js';
 import { Vector2 } from '../../math/Vector2.js';
 import { Vector4 } from '../../math/Vector4.js';
 import { RenderTarget } from '../../core/RenderTarget.js';
-import { DoubleSide, BackSide, FrontSide, SRGBColorSpace, NoToneMapping, LinearFilter, LinearSRGBColorSpace, HalfFloatType, RGBAFormat, PCFShadowMap } from '../../constants.js';
+import { DoubleSide, BackSide, FrontSide, SRGBColorSpace, NoToneMapping, LinearFilter, LinearSRGBColorSpace, HalfFloatType, RGBAFormat, PCFShadowMap, UnsignedByteType } from '../../constants.js';
 
 /** @module Renderer **/
 
@@ -1128,7 +1128,7 @@ class Renderer {
 			frameBufferTarget = new RenderTarget( width, height, {
 				depthBuffer: depth,
 				stencilBuffer: stencil,
-				type: HalfFloatType, // FloatType
+				type: UnsignedByteType,
 				format: RGBAFormat,
 				colorSpace: LinearSRGBColorSpace,
 				generateMipmaps: false,
@@ -1255,6 +1255,8 @@ class Renderer {
 
 		}
 
+		if ( outputRenderTarget ) renderContext.skipDepthStencilCopy = outputRenderTarget.needsDepthTexture === false;
+
 		//
 
 		let viewport = this._viewport;
@@ -1320,6 +1322,14 @@ class Renderer {
 			this._textures.updateRenderTarget( renderTarget, activeMipmapLevel );
 
 			const renderTargetData = this._textures.get( renderTarget );
+
+			// Do not attach a depth buffer if XR doesn't need one and we're using MSAA
+			if ( renderContext.skipDepthStencilCopy && ( renderContext.sampleCount > 1 ) ) {
+
+				renderTarget.depthBuffer = null;
+				renderTarget.stencilBuffer = null;
+
+			}
 
 			renderContext.textures = renderTargetData.textures;
 			renderContext.depthTexture = renderTargetData.depthTexture;

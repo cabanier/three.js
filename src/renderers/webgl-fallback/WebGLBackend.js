@@ -1956,7 +1956,7 @@ class WebGLBackend extends Backend {
 
 				}
 
-				if ( descriptor.depthTexture !== null ) {
+				if (( descriptor.depthTexture !== null ) && (!descriptor.skipDepthStencilCopy || ( samples === 0 ))) {
 
 					const textureData = this.get( descriptor.depthTexture );
 					const depthStyle = stencilBuffer ? gl.DEPTH_STENCIL_ATTACHMENT : gl.DEPTH_ATTACHMENT;
@@ -2044,7 +2044,12 @@ class WebGLBackend extends Backend {
 						renderTargetContextData.depthRenderbuffer = depthRenderbuffer;
 
 						const depthStyle = stencilBuffer ? gl.DEPTH_STENCIL_ATTACHMENT : gl.DEPTH_ATTACHMENT;
-						invalidationArray.push( depthStyle );
+
+						if  ( invalidationArray.indexOf( depthStyle ) === -1 ) {
+
+							invalidationArray.push( depthStyle );
+
+						}
 
 					}
 
