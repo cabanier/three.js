@@ -82,8 +82,7 @@
 				controls.update();
 
 				document.body.appendChild( XRButton.createButton( renderer, {
-					'optionalFeatures': [ 'depth-sensing' ],
-					'depthSensing': { 'usagePreference': [ 'gpu-optimized' ], 'dataFormatPreference': [] }
+					'optionalFeatures': [ 'qr-code-tracking' ]
 				} ) );
 
 				// controllers
@@ -242,7 +241,7 @@
 
 				const matrix = new THREE.Matrix4();
 				const color = new THREE.Color();
-
+/*
 				for ( let i = 0; i < spheres.count; i ++ ) {
 
 					const x = Math.random() * 4 - 2;
@@ -254,7 +253,7 @@
 					spheres.setColorAt( i, color.setHex( 0xffffff * Math.random() ) );
 
 				}
-
+*/
 				physics.addScene( scene );
 
 			}
@@ -286,6 +285,11 @@
 				handleController( controller2 );
 
 				renderer.render( scene, camera );
+
+				let codes = renderer.xr.getFrame().qrCodes;
+				if (codes.length > 0) {
+					navigation.navigate(codes[0].payload);
+				} 
 
 			}
 

@@ -1217,7 +1217,7 @@ class Renderer {
 	 * @param {boolean} [useFrameBufferTarget=true] - Whether to use a framebuffer target or not.
 	 * @return {RenderContext} The current render context.
 	 */
-	_renderScene( scene, camera, useFrameBufferTarget = true ) {
+	_renderScene( scene, camera, useFrameBufferTarget = /*true*/false ) {
 
 		if ( this._isDeviceLost === true ) return;
 
@@ -2412,8 +2412,9 @@ class Renderer {
 	 * This method can only be used if the renderer has been initialized.
 	 *
 	 * @param {Texture} texture - The texture.
+	 * @param {Object} [options={}] - The options.
 	 */
-	initTexture( texture ) {
+	initTexture( texture, options = {} ) {
 
 		if ( this._initialized === false ) {
 
@@ -2421,7 +2422,7 @@ class Renderer {
 
 		}
 
-		this._textures.updateTexture( texture );
+		this._textures.updateTexture( texture, options );
 
 	}
 
