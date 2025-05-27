@@ -30,6 +30,7 @@
 			import { BoxLineGeometry } from 'three/addons/geometries/BoxLineGeometry.js';
 			import { XRButton } from 'three/addons/webxr/XRButton.js';
 			import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
+			import { If, Fn, texture3D, lessThan, vec2, vec3, vec4, screenUV, output, color, div, screenRaw, viewport, builtin, uniformArray } from 'three/tsl';
 
 			const clock = new THREE.Clock();
 
@@ -37,6 +38,7 @@
 			let camera, scene, raycaster, renderer;
 
 			let room;
+			let masknode;
 
 			let controller, controllerGrip;
 			let INTERSECTED;
@@ -148,7 +150,9 @@
 
 				//
 
-				document.body.appendChild( XRButton.createButton( renderer ) );
+				document.body.appendChild( XRButton.createButton( renderer , {
+					'optionalFeatures': [ 'depth-sensing' ],
+					'depthSensing': { 'usagePreference': [ 'gpu-optimized' ], 'dataFormatPreference': [] } } ) );
 
 			}
 
@@ -192,6 +196,53 @@
 			function animate() {
 
 				const delta = clock.getDelta() * 60;
+
+				if ( renderer.xr.isPresenting && renderer.xr.depthData ) {
+					const data = renderer.xr.depthData[0];
+
+					if (this.depthTexture == undefined) {						
+
+						this.depthTexture = new THREE.Texture({ width: data.width, height: data.height, depth: 2});
+						this.depthTexture.isTextureArray = true;
+						this.depthTexture.isExternalTexture = true;
+						this.pixelShiftArray = uniformArray( [ renderer.xr.depthData[0].pixelTransform, renderer.xr.depthData[1].pixelTransform ] );
+
+						this.masknode = Fn( () => {
+
+							const depthcolor = output;
+							const pixelTransform = this.pixelShiftArray.element( builtin( 'gl_ViewID_OVR' ) ).toVar( 'pixelTransform' );
+							const shiftedpixel = pixelTransform.mul( screenRaw.xyzw ).toVar( 'shiftedpixel' );
+							const shiftedxy = shiftedpixel.xy.div( vec2 ( viewport.zw ) ).toVar( 'shiftedxy' );
+							const real_world_depth = texture3D( this.depthTexture, vec3( shiftedxy, builtin( 'gl_ViewID_OVR' ) ) ).r;
+							const virtual_world_depth = screenRaw.z;
+							return real_world_depth.lessThan( virtual_world_depth );
+
+						} )();
+
+						renderer.initTexture(this.depthTexture, { width: data.width, height: data.height, depth: 2, source: data.texture });
+
+						for ( let i = 0; i < room.children.length; i ++ ) {
+
+							room.children[ i ].material.maskNode = this.masknode;
+
+						}
+
+					} else {
+
+						for( let i = 0; i < 2; i++ ) {
+
+							this.pixelShiftArray.array[ i ] = renderer.xr.depthData[i].pixelTransform;
+							
+						}
+
+					}
+
+				} else {
+
+					delete this.masknode;
+					delete this.depthTexture;
+
+				}
 
 				if ( controller.userData.isSelecting === true ) {
 

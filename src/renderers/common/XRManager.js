@@ -3,6 +3,7 @@ import { EventDispatcher } from '../../core/EventDispatcher.js';
 import { PerspectiveCamera } from '../../cameras/PerspectiveCamera.js';
 import { Quaternion } from '../../math/Quaternion.js';
 import { RAD2DEG } from '../../math/MathUtils.js';
+import { Matrix4 } from '../../math/Matrix4.js';
 import { Vector2 } from '../../math/Vector2.js';
 import { Vector3 } from '../../math/Vector3.js';
 import { Vector4 } from '../../math/Vector4.js';
@@ -1069,8 +1070,15 @@ class XRManager extends EventDispatcher {
 
 		if ( session === null ) return;
 
-		const depthNear = camera.near;
-		const depthFar = camera.far;
+		let depthNear = camera.near;
+		let depthFar = camera.far;
+
+		if ( this.depthData ) {
+
+			depthNear = this.depthData[0].depthNear;
+			depthFar = this.depthData[0].depthFar;
+
+		}
 
 		const cameraXR = this._cameraXR;
 		const cameraL = this._cameraL;
@@ -1565,6 +1573,36 @@ function onAnimationFrame( time, frame ) {
 
 				}
 
+				const enabledFeatures = this._session.enabledFeatures;
+				const gpuDepthSensingEnabled = enabledFeatures &&
+					enabledFeatures.includes( 'depth-sensing' ) &&
+					this._session.depthUsage == 'gpu-optimized';
+				let depth_data = undefined;
+
+				if ( gpuDepthSensingEnabled && this._glBinding ) {
+
+					depth_data = this._glBinding.getDepthInformation( view );
+
+				}
+
+				if ( depth_data ) {
+
+					if ( this.depthData === undefined ) {
+
+						this.depthData = [ depth_data ];
+
+					} else {
+
+						this.depthData.push( depth_data );
+
+					}
+
+				} else {
+
+					delete this.depthData;
+
+				}
+
 			} else {
 
 				viewport = glBaseLayer.getViewport( view );
@@ -1601,6 +1639,28 @@ function onAnimationFrame( time, frame ) {
 
 			}
 
+			if ( this.depthData ) {
+
+				if ( this.depthData[i].transform ) {
+
+					const inverseViewMatrix = camera.matrix.clone().invert();
+					const inverseTransform = inverseViewMatrix.multiply( camera.projectionMatrixInverse );
+
+					const depthViewMatrix = new Matrix4().fromArray( this.depthData[i].transform.matrix );
+					const depthProjectionMatrix = new Matrix4().fromArray( this.depthData[i].projectionMatrix );
+					const depthTransform = depthProjectionMatrix.multiply( depthViewMatrix );
+
+					this.depthData[i].pixelTransform = depthTransform.multiply( inverseTransform );
+					// this.depthData[i].pixelTransform = new Matrix4();//.fromArray( this.depthData[i].transform.matrix ).multiply(inverseViewMatrix);
+
+				} else {
+
+					this.depthData[i].pixelTransform = new Matrix4();
+
+				}
+
+			}
+
 		}
 
 		renderer.setOutputRenderTarget( this._xrRenderTarget );
@@ -1623,6 +1683,8 @@ function onAnimationFrame( time, frame ) {
 	}
 
 	if ( this._currentAnimationLoop ) this._currentAnimationLoop( time, frame );
+
+	delete this.depthData;
 
 	if ( frame.detectedPlanes ) {
 

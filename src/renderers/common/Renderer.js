@@ -2492,7 +2492,7 @@ class Renderer {
 	 *
 	 * @param {Texture} texture - The texture.
 	 */
-	initTexture( texture ) {
+	initTexture( texture, options = {} ) {
 
 		if ( this._initialized === false ) {
 
@@ -2500,7 +2500,7 @@ class Renderer {
 
 		}
 
-		this._textures.updateTexture( texture );
+		this._textures.updateTexture( texture, options );
 
 	}
 
