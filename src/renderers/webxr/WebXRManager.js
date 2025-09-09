@@ -13,6 +13,27 @@ import { ExternalTexture } from '../../textures/ExternalTexture.js';
 import { DepthFormat, DepthStencilFormat, RGBAFormat, UnsignedByteType, UnsignedIntType, UnsignedInt248Type } from '../../constants.js';
 import { WebXRDepthSensing } from './WebXRDepthSensing.js';
 import { warn } from '../../utils.js';
+import { Mesh } from '../../objects/Mesh.js';
+import { Scene } from '../../scenes/Scene.js';
+import { BufferAttribute } from '../../core/BufferAttribute.js';
+import { BufferGeometry } from '../../core/BufferGeometry.js';
+import { ShaderMaterial } from '../../materials/ShaderMaterial.js';
+
+const _visibility_mask_vertex = `
+uniform mat4 clipMatrix;
+
+void main() {
+
+	gl_Position = clipMatrix * vec4( position.x, position.y, -1, 1.0 );
+
+}`;
+
+const _visibility_mask_fragment = `
+void main() {
+
+	gl_FragDepth = 0.00001;
+
+}`;
 
 /**
  * This class represents an abstraction of the WebXR Device API and is
@@ -82,6 +103,14 @@ class WebXRManager extends EventDispatcher {
 
 		let _currentDepthNear = null;
 		let _currentDepthFar = null;
+
+		const leftEyeMask = new Mesh();
+		leftEyeMask.layers.enable( 1 );
+		leftEyeMask.frustumCulled = false;
+		const rightEyeMask = new Mesh();
+		rightEyeMask.layers.enable( 2 );
+		rightEyeMask.frustumCulled = false;
+		let maskScene = null;
 
 		//
 
@@ -220,6 +249,7 @@ class WebXRManager extends EventDispatcher {
 			session.removeEventListener( 'squeezeend', onSessionEvent );
 			session.removeEventListener( 'end', onSessionEnd );
 			session.removeEventListener( 'inputsourceschange', onInputSourcesChange );
+			session.removeEventListener( 'visibilitymaskchange', onVisibilityMaskChange );
 
 			for ( let i = 0; i < controllers.length; i ++ ) {
 
@@ -410,6 +440,7 @@ class WebXRManager extends EventDispatcher {
 				session.addEventListener( 'squeezeend', onSessionEvent );
 				session.addEventListener( 'end', onSessionEnd );
 				session.addEventListener( 'inputsourceschange', onInputSourcesChange );
+				session.addEventListener( 'visibilitymaskchange', onVisibilityMaskChange );
 
 				if ( attributes.xrCompatible !== true ) {
 
@@ -610,6 +641,39 @@ class WebXRManager extends EventDispatcher {
 				}
 
 			}
+
+		}
+
+		function onVisibilityMaskChange( event ) {
+
+			const geometry = new BufferGeometry();
+			geometry.setIndex( new BufferAttribute( event.indices, 1 ) );
+			const vertices = new Float32Array( event.vertices.length / 2 * 3 );
+			let x = 0, y = 0;
+			while ( x < event.vertices.length ) {
+
+				vertices[ y ++ ] = event.vertices[ x ++ ];
+				vertices[ y ++ ] = event.vertices[ x ++ ];
+				vertices[ y ++ ] = - 1;
+
+			}
+
+			geometry.setAttribute( 'position', new BufferAttribute( vertices, 3 ) );
+
+			const mask = event.eye === 'left' ? leftEyeMask : rightEyeMask;
+			const matrix = cameras[ event.eye === 'left' ? 0 : 1 ].projectionMatrix;
+			mask.geometry = geometry;
+			mask.material = new ShaderMaterial( {
+				vertexShader: _visibility_mask_vertex,
+				fragmentShader: _visibility_mask_fragment,
+				uniforms: {
+					clipMatrix: { value: matrix }
+				}
+			} );
+
+			maskScene = new Scene();
+			maskScene.add( leftEyeMask );
+			maskScene.add( rightEyeMask );
 
 		}
 
@@ -893,6 +957,19 @@ class WebXRManager extends EventDispatcher {
 		this.getDepthSensingMesh = function () {
 
 			return depthSensing.getMesh( cameraXR );
+
+		};
+
+		/**
+		 * Returns visibility mask mesh.
+		 *
+		 * See {@link WebXRDepthSensing#getMesh}.
+		 *
+		 * @return {Mesh} The depth sensing mesh.
+		 */
+		this.getVisibilityMaskMesh = function () {
+
+			return maskScene;
 
 		};
 

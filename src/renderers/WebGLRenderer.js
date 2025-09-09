@@ -1583,6 +1583,14 @@ class WebGLRenderer {
 
 				}
 
+				const visibilityMaskMesh = _this.xr.getVisibilityMaskMesh();
+
+				if ( visibilityMaskMesh !== null ) {
+
+					projectObject( visibilityMaskMesh, camera, - Infinity, _this.sortObjects );
+
+				}
+
 			}
 
 			projectObject( scene, camera, 0, _this.sortObjects );
