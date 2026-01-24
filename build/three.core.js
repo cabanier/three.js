@@ -2,6 +2,7 @@
  * @license
  * Copyright 2010-2026 Three.js Authors
  * SPDX-License-Identifier: MIT
+ * DEV BUILD WITH SOURCE MAPS
  */
 const REVISION = '183dev';
 
@@ -1753,6 +1754,26 @@ const Compatibility = {
  * @property {string} EITHER - Flat interpolation using either vertex.
  */
 
+/**
+ * Finds the minimum value in an array.
+ *
+ * @private
+ * @param {Array<number>} array - The array to search for the minimum value.
+ * @return {number} The minimum value in the array, or Infinity if the array is empty.
+ */
+
+/**
+ * Checks if an array contains values that require Uint32 representation.
+ *
+ * This function determines whether the array contains any values >= 65535,
+ * which would require a Uint32Array rather than a Uint16Array for proper storage.
+ * The function iterates from the end of the array, assuming larger values are
+ * typically located at the end.
+ *
+ * @private
+ * @param {Array<number>} array - The array to check.
+ * @return {boolean} True if the array contains values >= 65535, false otherwise.
+ */
 function arrayNeedsUint32( array ) {
 
 	// assumes larger values usually on last
@@ -1767,6 +1788,14 @@ function arrayNeedsUint32( array ) {
 
 }
 
+/**
+ * Map of typed array constructor names to their constructors.
+ * This mapping enables dynamic creation of typed arrays based on string type names.
+ *
+ * @private
+ * @constant
+ * @type {Object<string, TypedArrayConstructor>}
+ */
 const TYPED_ARRAYS = {
 	Int8Array: Int8Array,
 	Uint8Array: Uint8Array,
@@ -1779,6 +1808,14 @@ const TYPED_ARRAYS = {
 	Float64Array: Float64Array
 };
 
+/**
+ * Creates a typed array of the specified type from the given buffer.
+ *
+ * @private
+ * @param {string} type - The name of the typed array type (e.g., 'Float32Array', 'Uint16Array').
+ * @param {ArrayBuffer} buffer - The buffer to create the typed array from.
+ * @return {TypedArray} A new typed array of the specified type.
+ */
 function getTypedArray( type, buffer ) {
 
 	return new TYPED_ARRAYS[ type ]( buffer );
@@ -1797,12 +1834,31 @@ function isTypedArray( array ) {
 
 }
 
+/**
+ * Creates an XHTML element with the specified tag name.
+ *
+ * This function uses the XHTML namespace to create DOM elements,
+ * ensuring proper element creation in XML-based contexts.
+ *
+ * @private
+ * @param {string} name - The tag name of the element to create (e.g., 'canvas', 'div').
+ * @return {HTMLElement} The created XHTML element.
+ */
 function createElementNS( name ) {
 
 	return document.createElementNS( 'http://www.w3.org/1999/xhtml', name );
 
 }
 
+/**
+ * Creates a canvas element configured for block display.
+ *
+ * This is a convenience function that creates a canvas element with
+ * display style set to 'block', which is commonly used in three.js
+ * rendering contexts to avoid inline element spacing issues.
+ *
+ * @return {HTMLCanvasElement} A canvas element with display set to 'block'.
+ */
 function createCanvasElement() {
 
 	const canvas = createElementNS( 'canvas' );
@@ -1811,22 +1867,59 @@ function createCanvasElement() {
 
 }
 
+/**
+ * Internal cache for tracking warning messages to prevent duplicate warnings.
+ *
+ * @private
+ * @type {Object<string, boolean>}
+ */
 const _cache = {};
 
+/**
+ * Custom console function handler for intercepting log, warn, and error calls.
+ *
+ * @private
+ * @type {Function|null}
+ */
 let _setConsoleFunction = null;
 
+/**
+ * Sets a custom function to handle console output.
+ *
+ * This allows external code to intercept and handle console.log, console.warn,
+ * and console.error calls made by three.js, which is useful for custom logging,
+ * testing, or debugging workflows.
+ *
+ * @param {Function} fn - The function to handle console output. Should accept
+ *                        (type, message, ...params) where type is 'log', 'warn', or 'error'.
+ */
 function setConsoleFunction( fn ) {
 
 	_setConsoleFunction = fn;
 
 }
 
+/**
+ * Gets the currently set custom console function.
+ *
+ * @return {Function|null} The custom console function, or null if not set.
+ */
 function getConsoleFunction() {
 
 	return _setConsoleFunction;
 
 }
 
+/**
+ * Logs an informational message with the 'THREE.' prefix.
+ *
+ * If a custom console function is set via setConsoleFunction(), it will be used
+ * instead of the native console.log. The first parameter is treated as the
+ * method name and is automatically prefixed with 'THREE.'.
+ *
+ * @param {...any} params - The message components. The first param is used as
+ *                          the method name and prefixed with 'THREE.'.
+ */
 function log( ...params ) {
 
 	const message = 'THREE.' + params.shift();
@@ -1843,6 +1936,16 @@ function log( ...params ) {
 
 }
 
+/**
+ * Logs a warning message with the 'THREE.' prefix.
+ *
+ * If a custom console function is set via setConsoleFunction(), it will be used
+ * instead of the native console.warn. The first parameter is treated as the
+ * method name and is automatically prefixed with 'THREE.'.
+ *
+ * @param {...any} params - The message components. The first param is used as
+ *                          the method name and prefixed with 'THREE.'.
+ */
 function warn( ...params ) {
 
 	const message = 'THREE.' + params.shift();
@@ -1859,6 +1962,16 @@ function warn( ...params ) {
 
 }
 
+/**
+ * Logs an error message with the 'THREE.' prefix.
+ *
+ * If a custom console function is set via setConsoleFunction(), it will be used
+ * instead of the native console.error. The first parameter is treated as the
+ * method name and is automatically prefixed with 'THREE.'.
+ *
+ * @param {...any} params - The message components. The first param is used as
+ *                          the method name and prefixed with 'THREE.'.
+ */
 function error( ...params ) {
 
 	const message = 'THREE.' + params.shift();
@@ -1875,6 +1988,15 @@ function error( ...params ) {
 
 }
 
+/**
+ * Logs a warning message only once, preventing duplicate warnings.
+ *
+ * This function maintains an internal cache of warning messages and will only
+ * output each unique warning message once. Useful for warnings that may be
+ * triggered repeatedly but should only be shown to the user once.
+ *
+ * @param {...any} params - The warning message components.
+ */
 function warnOnce( ...params ) {
 
 	const message = params.join( ' ' );
@@ -1887,6 +2009,20 @@ function warnOnce( ...params ) {
 
 }
 
+/**
+ * Asynchronously probes for WebGL sync object completion.
+ *
+ * This function creates a promise that resolves when the WebGL sync object
+ * signals completion or rejects if the sync operation fails. It uses polling
+ * at the specified interval to check the sync status without blocking the
+ * main thread. This is useful for GPU-CPU synchronization in WebGL contexts.
+ *
+ * @private
+ * @param {WebGLRenderingContext|WebGL2RenderingContext} gl - The WebGL rendering context.
+ * @param {WebGLSync} sync - The WebGL sync object to wait for.
+ * @param {number} interval - The polling interval in milliseconds.
+ * @return {Promise<void>} A promise that resolves when the sync completes or rejects if it fails.
+ */
 function probeAsync( gl, sync, interval ) {
 
 	return new Promise( function ( resolve, reject ) {
@@ -8854,7 +8990,8 @@ class RenderTarget extends EventDispatcher {
 	 * @property {number} [samples=0] - The MSAA samples count.
 	 * @property {number} [count=1] - Defines the number of color attachments . Must be at least `1`.
 	 * @property {number} [depth=1] - The texture depth.
-	 * @property {boolean} [multiview=false] - Whether this target is used for multiview rendering.
+	 * @property {boolean} [multiview=false] - Whether this target is used for multiview rendering (WebGL OVR_multiview2 extension).
+	 * @property {boolean} [useArrayDepthTexture=false] - Whether to create the depth texture as an array texture for per-layer depth testing. This is separate from multiview to allow array depth textures without the multiview extension (e.g., for WebGPU XR).
 	 */
 
 	/**
@@ -8880,7 +9017,8 @@ class RenderTarget extends EventDispatcher {
 			samples: 0,
 			count: 1,
 			depth: 1,
-			multiview: false
+			multiview: false,
+			useArrayDepthTexture: false
 		}, options );
 
 		/**
@@ -9017,6 +9155,16 @@ class RenderTarget extends EventDispatcher {
 		 * @default false
 		 */
 		this.multiview = options.multiview;
+
+		/**
+		 * Whether to create the depth texture as an array texture for per-layer depth testing.
+		 * This is separate from multiview to allow array depth textures without the multiview
+		 * extension (e.g., for WebGPU XR which doesn't use OVR_multiview2).
+		 *
+		 * @type {boolean}
+		 * @default false
+		 */
+		this.useArrayDepthTexture = options.useArrayDepthTexture;
 
 	}
 
@@ -9188,6 +9336,8 @@ class RenderTarget extends EventDispatcher {
 		if ( source.depthTexture !== null ) this.depthTexture = source.depthTexture.clone();
 
 		this.samples = source.samples;
+		this.multiview = source.multiview;
+		this.useArrayDepthTexture = source.useArrayDepthTexture;
 
 		return this;
 
@@ -28081,12 +28231,10 @@ class BatchedMesh extends Mesh {
 			nextVertexStart += geometryInfo.reservedVertexCount;
 			geometryInfo.start = geometry.index ? geometryInfo.indexStart : geometryInfo.vertexStart;
 
-			// step the next geometry points to the shifted position
-			this._nextIndexStart = geometry.index ? geometryInfo.indexStart + geometryInfo.reservedIndexCount : 0;
-			this._nextVertexStart = geometryInfo.vertexStart + geometryInfo.reservedVertexCount;
-
 		}
 
+		this._nextIndexStart = nextIndexStart;
+		this._nextVertexStart = nextVertexStart;
 		this._visibilityChanged = true;
 
 		return this;
@@ -59167,3 +59315,4 @@ if ( typeof window !== 'undefined' ) {
 }
 
 export { ACESFilmicToneMapping, AddEquation, AddOperation, AdditiveAnimationBlendMode, AdditiveBlending, AgXToneMapping, AlphaFormat, AlwaysCompare, AlwaysDepth, AlwaysStencilFunc, AmbientLight, AnimationAction, AnimationClip, AnimationLoader, AnimationMixer, AnimationObjectGroup, AnimationUtils, ArcCurve, ArrayCamera, ArrowHelper, AttachedBindMode, Audio, AudioAnalyser, AudioContext, AudioListener, AudioLoader, AxesHelper, BackSide, BasicDepthPacking, BasicShadowMap, BatchedMesh, Bone, BooleanKeyframeTrack, Box2, Box3, Box3Helper, BoxGeometry, BoxHelper, BufferAttribute, BufferGeometry, BufferGeometryLoader, ByteType, Cache, Camera, CameraHelper, CanvasTexture, CapsuleGeometry, CatmullRomCurve3, CineonToneMapping, CircleGeometry, ClampToEdgeWrapping, Clock, Color, ColorKeyframeTrack, ColorManagement, Compatibility, CompressedArrayTexture, CompressedCubeTexture, CompressedTexture, CompressedTextureLoader, ConeGeometry, ConstantAlphaFactor, ConstantColorFactor, Controls, CubeCamera, CubeDepthTexture, CubeReflectionMapping, CubeRefractionMapping, CubeTexture, CubeTextureLoader, CubeUVReflectionMapping, CubicBezierCurve, CubicBezierCurve3, CubicInterpolant, CullFaceBack, CullFaceFront, CullFaceFrontBack, CullFaceNone, Curve, CurvePath, CustomBlending, CustomToneMapping, CylinderGeometry, Cylindrical, Data3DTexture, DataArrayTexture, DataTexture, DataTextureLoader, DataUtils, DecrementStencilOp, DecrementWrapStencilOp, DefaultLoadingManager, DepthFormat, DepthStencilFormat, DepthTexture, DetachedBindMode, DirectionalLight, DirectionalLightHelper, DiscreteInterpolant, DodecahedronGeometry, DoubleSide, DstAlphaFactor, DstColorFactor, DynamicCopyUsage, DynamicDrawUsage, DynamicReadUsage, EdgesGeometry, EllipseCurve, EqualCompare, EqualDepth, EqualStencilFunc, EquirectangularReflectionMapping, EquirectangularRefractionMapping, Euler, EventDispatcher, ExternalTexture, ExtrudeGeometry, FileLoader, Float16BufferAttribute, Float32BufferAttribute, FloatType, Fog, FogExp2, FramebufferTexture, FrontSide, Frustum, FrustumArray, GLBufferAttribute, GLSL1, GLSL3, GreaterCompare, GreaterDepth, GreaterEqualCompare, GreaterEqualDepth, GreaterEqualStencilFunc, GreaterStencilFunc, GridHelper, Group, HalfFloatType, HemisphereLight, HemisphereLightHelper, IcosahedronGeometry, ImageBitmapLoader, ImageLoader, ImageUtils, IncrementStencilOp, IncrementWrapStencilOp, InstancedBufferAttribute, InstancedBufferGeometry, InstancedInterleavedBuffer, InstancedMesh, Int16BufferAttribute, Int32BufferAttribute, Int8BufferAttribute, IntType, InterleavedBuffer, InterleavedBufferAttribute, Interpolant, InterpolateDiscrete, InterpolateLinear, InterpolateSmooth, InterpolationSamplingMode, InterpolationSamplingType, InvertStencilOp, KeepStencilOp, KeyframeTrack, LOD, LatheGeometry, Layers, LessCompare, LessDepth, LessEqualCompare, LessEqualDepth, LessEqualStencilFunc, LessStencilFunc, Light, LightProbe, Line, Line3, LineBasicMaterial, LineCurve, LineCurve3, LineDashedMaterial, LineLoop, LineSegments, LinearFilter, LinearInterpolant, LinearMipMapLinearFilter, LinearMipMapNearestFilter, LinearMipmapLinearFilter, LinearMipmapNearestFilter, LinearSRGBColorSpace, LinearToneMapping, LinearTransfer, Loader, LoaderUtils, LoadingManager, LoopOnce, LoopPingPong, LoopRepeat, MOUSE, Material, MaterialBlending, MaterialLoader, MathUtils, Matrix2, Matrix3, Matrix4, MaxEquation, Mesh, MeshBasicMaterial, MeshDepthMaterial, MeshDistanceMaterial, MeshLambertMaterial, MeshMatcapMaterial, MeshNormalMaterial, MeshPhongMaterial, MeshPhysicalMaterial, MeshStandardMaterial, MeshToonMaterial, MinEquation, MirroredRepeatWrapping, MixOperation, MultiplyBlending, MultiplyOperation, NearestFilter, NearestMipMapLinearFilter, NearestMipMapNearestFilter, NearestMipmapLinearFilter, NearestMipmapNearestFilter, NeutralToneMapping, NeverCompare, NeverDepth, NeverStencilFunc, NoBlending, NoColorSpace, NoNormalPacking, NoToneMapping, NormalAnimationBlendMode, NormalBlending, NormalGAPacking, NormalRGPacking, NotEqualCompare, NotEqualDepth, NotEqualStencilFunc, NumberKeyframeTrack, Object3D, ObjectLoader, ObjectSpaceNormalMap, OctahedronGeometry, OneFactor, OneMinusConstantAlphaFactor, OneMinusConstantColorFactor, OneMinusDstAlphaFactor, OneMinusDstColorFactor, OneMinusSrcAlphaFactor, OneMinusSrcColorFactor, OrthographicCamera, PCFShadowMap, PCFSoftShadowMap, Path, PerspectiveCamera, Plane, PlaneGeometry, PlaneHelper, PointLight, PointLightHelper, Points, PointsMaterial, PolarGridHelper, PolyhedronGeometry, PositionalAudio, PropertyBinding, PropertyMixer, QuadraticBezierCurve, QuadraticBezierCurve3, Quaternion, QuaternionKeyframeTrack, QuaternionLinearInterpolant, R11_EAC_Format, RAD2DEG, RED_GREEN_RGTC2_Format, RED_RGTC1_Format, REVISION, RG11_EAC_Format, RGBADepthPacking, RGBAFormat, RGBAIntegerFormat, RGBA_ASTC_10x10_Format, RGBA_ASTC_10x5_Format, RGBA_ASTC_10x6_Format, RGBA_ASTC_10x8_Format, RGBA_ASTC_12x10_Format, RGBA_ASTC_12x12_Format, RGBA_ASTC_4x4_Format, RGBA_ASTC_5x4_Format, RGBA_ASTC_5x5_Format, RGBA_ASTC_6x5_Format, RGBA_ASTC_6x6_Format, RGBA_ASTC_8x5_Format, RGBA_ASTC_8x6_Format, RGBA_ASTC_8x8_Format, RGBA_BPTC_Format, RGBA_ETC2_EAC_Format, RGBA_PVRTC_2BPPV1_Format, RGBA_PVRTC_4BPPV1_Format, RGBA_S3TC_DXT1_Format, RGBA_S3TC_DXT3_Format, RGBA_S3TC_DXT5_Format, RGBDepthPacking, RGBFormat, RGBIntegerFormat, RGB_BPTC_SIGNED_Format, RGB_BPTC_UNSIGNED_Format, RGB_ETC1_Format, RGB_ETC2_Format, RGB_PVRTC_2BPPV1_Format, RGB_PVRTC_4BPPV1_Format, RGB_S3TC_DXT1_Format, RGDepthPacking, RGFormat, RGIntegerFormat, RawShaderMaterial, Ray, Raycaster, RectAreaLight, RedFormat, RedIntegerFormat, ReinhardToneMapping, RenderTarget, RenderTarget3D, RepeatWrapping, ReplaceStencilOp, ReverseSubtractEquation, RingGeometry, SIGNED_R11_EAC_Format, SIGNED_RED_GREEN_RGTC2_Format, SIGNED_RED_RGTC1_Format, SIGNED_RG11_EAC_Format, SRGBColorSpace, SRGBTransfer, Scene, ShaderMaterial, ShadowMaterial, Shape, ShapeGeometry, ShapePath, ShapeUtils, ShortType, Skeleton, SkeletonHelper, SkinnedMesh, Source, Sphere, SphereGeometry, Spherical, SphericalHarmonics3, SplineCurve, SpotLight, SpotLightHelper, Sprite, SpriteMaterial, SrcAlphaFactor, SrcAlphaSaturateFactor, SrcColorFactor, StaticCopyUsage, StaticDrawUsage, StaticReadUsage, StereoCamera, StreamCopyUsage, StreamDrawUsage, StreamReadUsage, StringKeyframeTrack, SubtractEquation, SubtractiveBlending, TOUCH, TangentSpaceNormalMap, TetrahedronGeometry, Texture, TextureLoader, TextureUtils, Timer, TimestampQuery, TorusGeometry, TorusKnotGeometry, Triangle, TriangleFanDrawMode, TriangleStripDrawMode, TrianglesDrawMode, TubeGeometry, UVMapping, Uint16BufferAttribute, Uint32BufferAttribute, Uint8BufferAttribute, Uint8ClampedBufferAttribute, Uniform, UniformsGroup, UniformsUtils, UnsignedByteType, UnsignedInt101111Type, UnsignedInt248Type, UnsignedInt5999Type, UnsignedIntType, UnsignedShort4444Type, UnsignedShort5551Type, UnsignedShortType, VSMShadowMap, Vector2, Vector3, Vector4, VectorKeyframeTrack, VideoFrameTexture, VideoTexture, WebGL3DRenderTarget, WebGLArrayRenderTarget, WebGLCoordinateSystem, WebGLCubeRenderTarget, WebGLRenderTarget, WebGPUCoordinateSystem, WebXRController, WireframeGeometry, WrapAroundEnding, ZeroCurvatureEnding, ZeroFactor, ZeroSlopeEnding, ZeroStencilOp, arrayNeedsUint32, cloneUniforms, createCanvasElement, createElementNS, error, getByteLength, getConsoleFunction, getUnlitUniformColorSpace, isTypedArray, log, mergeUniforms, probeAsync, setConsoleFunction, warn, warnOnce };
+//# sourceMappingURL=three.core.js.map

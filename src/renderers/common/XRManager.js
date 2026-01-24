@@ -7,7 +7,7 @@ import { Vector2 } from '../../math/Vector2.js';
 import { Vector3 } from '../../math/Vector3.js';
 import { Vector4 } from '../../math/Vector4.js';
 import { WebXRController } from '../webxr/WebXRController.js';
-import { AddEquation, BackSide, CustomBlending, DepthFormat, DepthStencilFormat, FrontSide, RGBAFormat, UnsignedByteType, UnsignedInt248Type, UnsignedIntType, ZeroFactor } from '../../constants.js';
+import { AddEquation, BackSide, CustomBlending, DepthFormat, DepthStencilFormat, FrontSide, RGBAFormat, UnsignedByteType, UnsignedInt248Type, UnsignedIntType, ZeroFactor, LinearFilter } from '../../constants.js';
 import { DepthTexture } from '../../textures/DepthTexture.js';
 import { XRRenderTarget } from './XRRenderTarget.js';
 import { CylinderGeometry } from '../../geometries/CylinderGeometry.js';
@@ -17,6 +17,7 @@ import { PlaneGeometry } from '../../geometries/PlaneGeometry.js';
 import { MeshBasicMaterial } from '../../materials/MeshBasicMaterial.js';
 import { Mesh } from '../../objects/Mesh.js';
 import { warn } from '../../utils.js';
+import { RenderTarget } from '../../core/RenderTarget.js';
 
 const _cameraLPos = /*@__PURE__*/ new Vector3();
 const _cameraRPos = /*@__PURE__*/ new Vector3();
@@ -343,6 +344,10 @@ class XRManager extends EventDispatcher {
 		 */
 		this._glBinding = null;
 
+		this._webgpuBinding = null;
+
+		this._backend = null;
+
 		/**
 		 * A reference to the current XR projection layer.
 		 *
@@ -610,6 +615,18 @@ class XRManager extends EventDispatcher {
 		}
 
 		return this._glBinding;
+
+	}
+
+	getWebGPUBinding() {
+
+		if ( this._webgpuBinding === null && this._supportsGlBinding ) {
+
+			this._webgpuBinding = new XRGPUBinding( this._session, this._backend.device );
+
+		}
+
+		return this._webgpuBinding;
 
 	}
 
@@ -918,17 +935,14 @@ class XRManager extends EventDispatcher {
 	async setSession( session ) {
 
 		const renderer = this._renderer;
-		const backend = renderer.backend;
+		this._backend = renderer.backend;
 
 		this._gl = renderer.getContext();
 		const gl = this._gl;
-		const attributes = gl.getContextAttributes();
 
 		this._session = session;
 
 		if ( session !== null ) {
-
-			if ( backend.isWebGPUBackend === true ) throw new Error( 'THREE.XRManager: XR is currently not supported with a WebGPU backend. Use WebGL by passing "{ forceWebGL: true }" to the constructor of the renderer.' );
 
 			session.addEventListener( 'select', this._onSessionEvent );
 			session.addEventListener( 'selectstart', this._onSessionEvent );
@@ -939,8 +953,6 @@ class XRManager extends EventDispatcher {
 			session.addEventListener( 'end', this._onSessionEnd );
 			session.addEventListener( 'inputsourceschange', this._onInputSourcesChange );
 
-			await backend.makeXRCompatible();
-
 			this._currentPixelRatio = renderer.getPixelRatio();
 			renderer.getSize( this._currentSize );
 
@@ -950,13 +962,41 @@ class XRManager extends EventDispatcher {
 
 			//
 
-			if ( this._supportsLayers === true ) {
+			if ( this._session.enabledFeatures.includes( 'webgpu' ) ) {
+
+				const glProjLayer = this.getWebGPUBinding().createProjectionLayer( {
+					colorFormat: this.getWebGPUBinding().getPreferredColorFormat(),
+					depthStencilFormat: 'depth24plus' } );
+				this._glProjLayer = glProjLayer;
+				const layersArray = [ glProjLayer ];
+
+				session.updateRenderState( { layers: layersArray } );
+
+				this._referenceSpace = await session.requestReferenceSpace( this.getReferenceSpaceType() );
+
+				this._xrRenderTarget = new RenderTarget( glProjLayer.textureWidth, glProjLayer.textureHeight, {
+					depth: 2,
+					minFilter: LinearFilter,
+					magFilter: LinearFilter,
+					depthBuffer: true,
+					multiview: false,
+					useArrayDepthTexture: true,
+					samples: 0
+				} );
+
+				this._xrRenderTarget.texture.isArrayTexture = true;
+
+			} else if ( this._supportsLayers === true ) {
 
 				// default path using XRProjectionLayer
 
 				let depthFormat = null;
 				let depthType = null;
 				let glDepthFormat = null;
+
+				const attributes = gl.getContextAttributes();
+				await this._backend.makeXRCompatible();
+				this.setFoveation( this.getFoveation() );
 
 				if ( renderer.depth ) {
 
@@ -1040,6 +1080,8 @@ class XRManager extends EventDispatcher {
 			} else {
 
 				// fallback to XRWebGLLayer
+				await this._backend.makeXRCompatible();
+				this.setFoveation( this.getFoveation() );
 
 				const layerInit = {
 					antialias: renderer.currentSamples > 0,
@@ -1076,8 +1118,6 @@ class XRManager extends EventDispatcher {
 			}
 
 			//
-
-			this.setFoveation( this.getFoveation() );
 
 			renderer._animation.setAnimationLoop( this._onAnimationFrame );
 			renderer._animation.setContext( session );
@@ -1566,7 +1606,16 @@ function onAnimationFrame( time, frame ) {
 
 		const views = pose.views;
 
-		if ( this._glBaseLayer !== null ) {
+		// Check if we're using WebGPU backend with XRGPUBinding
+		const isWebGPUBackend = backend.isWebGPUBackend === true;
+		const webgpuBinding = isWebGPUBackend ? this.getWebGPUBinding() : null;
+
+		// For WebGPU path: collect color textures and view descriptors from all views
+		const colorTextures = [];
+		const viewDescriptors = [];
+		let depthTexture = null;
+
+		if ( this._glBaseLayer !== null && ! isWebGPUBackend ) {
 
 			backend.setXRTarget( glBaseLayer.framebuffer );
 
@@ -1591,17 +1640,45 @@ function onAnimationFrame( time, frame ) {
 
 			if ( this._supportsLayers === true ) {
 
-				const glSubImage = this._glBinding.getViewSubImage( this._glProjLayer, view );
-				viewport = glSubImage.viewport;
+				if ( isWebGPUBackend && webgpuBinding !== null ) {
 
-				// For side-by-side projection, we only produce a single texture for both eyes.
-				if ( i === 0 ) {
+					// WebGPU path: Use XRGPUBinding to get GPUTextures directly
+					const gpuSubImage = webgpuBinding.getViewSubImage( this._glProjLayer, view );
+					viewport = gpuSubImage.viewport;
 
-					backend.setXRRenderTargetTextures(
-						this._xrRenderTarget,
-						glSubImage.colorTexture,
-						( this._glProjLayer.ignoreDepthValues && ! this._useMultiview ) ? undefined : glSubImage.depthStencilTexture
-					);
+					// Collect color textures for each view (for MRT array)
+					colorTextures.push( gpuSubImage.colorTexture );
+
+					// Collect view descriptor for each view - this is critical for creating proper 2D views into the array texture
+					if ( gpuSubImage.getViewDescriptor ) {
+
+						viewDescriptors.push( gpuSubImage.getViewDescriptor() );
+
+					}
+
+					// Store depth texture from first view (shared across all views)
+					if ( i === 0 ) {
+
+						depthTexture = ( this._glProjLayer.ignoreDepthValues && ! this._useMultiview ) ? null : gpuSubImage.depthStencilTexture;
+
+					}
+
+				} else {
+
+					// WebGL path: Use XRWebGLBinding
+					const glSubImage = this._glBinding.getViewSubImage( this._glProjLayer, view );
+					viewport = glSubImage.viewport;
+
+					// For side-by-side projection, we only produce a single texture for both eyes.
+					if ( i === 0 ) {
+
+						backend.setXRRenderTargetTextures(
+							this._xrRenderTarget,
+							glSubImage.colorTexture,
+							( this._glProjLayer.ignoreDepthValues && ! this._useMultiview ) ? undefined : glSubImage.depthStencilTexture
+						);
+
+					}
 
 				}
 
@@ -1640,6 +1717,18 @@ function onAnimationFrame( time, frame ) {
 				cameraXR.cameras.push( camera );
 
 			}
+
+		}
+
+		// WebGPU path: Register all collected color textures after the loop
+		if ( isWebGPUBackend && webgpuBinding !== null && colorTextures.length > 0 ) {
+
+			backend.setXRRenderTargetTextures(
+				this._xrRenderTarget,
+				colorTextures, // Array of GPUTextures, one per view
+				depthTexture,
+				viewDescriptors // Array of view descriptors, one per view
+			);
 
 		}
 

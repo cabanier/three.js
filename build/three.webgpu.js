@@ -2,6 +2,7 @@
  * @license
  * Copyright 2010-2026 Three.js Authors
  * SPDX-License-Identifier: MIT
+ * DEV BUILD WITH SOURCE MAPS
  */
 import { Color, Vector2, Vector3, Vector4, Matrix2, Matrix3, Matrix4, error, EventDispatcher, MathUtils, warn, WebGLCoordinateSystem, WebGPUCoordinateSystem, ColorManagement, SRGBTransfer, NoToneMapping, StaticDrawUsage, InterleavedBufferAttribute, InterleavedBuffer, DynamicDrawUsage, NoColorSpace, log as log$1, warnOnce, Texture, UnsignedIntType, IntType, Compatibility, LessCompare, NearestFilter, Sphere, BackSide, DoubleSide, Euler, CubeTexture, CubeReflectionMapping, CubeRefractionMapping, TangentSpaceNormalMap, NoNormalPacking, NormalRGPacking, NormalGAPacking, ObjectSpaceNormalMap, RGFormat, RED_GREEN_RGTC2_Format, RG11_EAC_Format, InstancedBufferAttribute, InstancedInterleavedBuffer, DataArrayTexture, FloatType, FramebufferTexture, LinearMipmapLinearFilter, DepthTexture, Material, LineBasicMaterial, LineDashedMaterial, NoBlending, MeshNormalMaterial, SRGBColorSpace, WebGLCubeRenderTarget, BoxGeometry, Mesh, Scene, LinearFilter, CubeCamera, EquirectangularReflectionMapping, EquirectangularRefractionMapping, AddOperation, MixOperation, MultiplyOperation, MeshBasicMaterial, MeshLambertMaterial, MeshPhongMaterial, DataTexture, HalfFloatType, ClampToEdgeWrapping, BufferGeometry, OrthographicCamera, PerspectiveCamera, RenderTarget, LinearSRGBColorSpace, RGBAFormat, CubeUVReflectionMapping, BufferAttribute, MeshStandardMaterial, MeshPhysicalMaterial, MeshToonMaterial, MeshMatcapMaterial, SpriteMaterial, PointsMaterial, ShadowMaterial, Uint32BufferAttribute, Uint16BufferAttribute, arrayNeedsUint32, DepthStencilFormat, DepthFormat, UnsignedInt248Type, UnsignedByteType, NormalBlending, SrcAlphaFactor, OneMinusSrcAlphaFactor, AddEquation, MaterialBlending, Plane, Object3D, LinearMipMapLinearFilter, Float32BufferAttribute, UVMapping, VSMShadowMap, LessEqualCompare, PCFShadowMap, PCFSoftShadowMap, BasicShadowMap, CubeDepthTexture, SphereGeometry, LinearMipmapNearestFilter, NearestMipmapLinearFilter, Float16BufferAttribute, REVISION, ArrayCamera, PlaneGeometry, FrontSide, CustomBlending, ZeroFactor, CylinderGeometry, Quaternion, WebXRController, RAD2DEG, FrustumArray, Frustum, RedIntegerFormat, RedFormat, ShortType, ByteType, UnsignedShortType, RGIntegerFormat, RGBIntegerFormat, RGBFormat, RGBAIntegerFormat, TimestampQuery, createCanvasElement, ReverseSubtractEquation, SubtractEquation, OneMinusDstAlphaFactor, OneMinusDstColorFactor, OneMinusSrcColorFactor, DstAlphaFactor, DstColorFactor, SrcAlphaSaturateFactor, SrcColorFactor, OneFactor, CullFaceNone, CullFaceBack, CullFaceFront, MultiplyBlending, SubtractiveBlending, AdditiveBlending, NotEqualDepth, GreaterDepth, GreaterEqualDepth, EqualDepth, LessEqualDepth, LessDepth, AlwaysDepth, NeverDepth, UnsignedShort4444Type, UnsignedShort5551Type, UnsignedInt5999Type, UnsignedInt101111Type, AlphaFormat, RGB_S3TC_DXT1_Format, RGBA_S3TC_DXT1_Format, RGBA_S3TC_DXT3_Format, RGBA_S3TC_DXT5_Format, RGB_PVRTC_4BPPV1_Format, RGB_PVRTC_2BPPV1_Format, RGBA_PVRTC_4BPPV1_Format, RGBA_PVRTC_2BPPV1_Format, RGB_ETC1_Format, RGB_ETC2_Format, RGBA_ETC2_EAC_Format, R11_EAC_Format, SIGNED_R11_EAC_Format, SIGNED_RG11_EAC_Format, RGBA_ASTC_4x4_Format, RGBA_ASTC_5x4_Format, RGBA_ASTC_5x5_Format, RGBA_ASTC_6x5_Format, RGBA_ASTC_6x6_Format, RGBA_ASTC_8x5_Format, RGBA_ASTC_8x6_Format, RGBA_ASTC_8x8_Format, RGBA_ASTC_10x5_Format, RGBA_ASTC_10x6_Format, RGBA_ASTC_10x8_Format, RGBA_ASTC_10x10_Format, RGBA_ASTC_12x10_Format, RGBA_ASTC_12x12_Format, RGBA_BPTC_Format, RED_RGTC1_Format, SIGNED_RED_RGTC1_Format, SIGNED_RED_GREEN_RGTC2_Format, MirroredRepeatWrapping, RepeatWrapping, NearestMipmapNearestFilter, NotEqualCompare, GreaterCompare, GreaterEqualCompare, EqualCompare, AlwaysCompare, NeverCompare, LinearTransfer, getByteLength, isTypedArray, NotEqualStencilFunc, GreaterStencilFunc, GreaterEqualStencilFunc, EqualStencilFunc, LessEqualStencilFunc, LessStencilFunc, AlwaysStencilFunc, NeverStencilFunc, DecrementWrapStencilOp, IncrementWrapStencilOp, DecrementStencilOp, IncrementStencilOp, InvertStencilOp, ReplaceStencilOp, ZeroStencilOp, KeepStencilOp, MaxEquation, MinEquation, SpotLight, PointLight, DirectionalLight, RectAreaLight, AmbientLight, HemisphereLight, LightProbe, LinearToneMapping, ReinhardToneMapping, CineonToneMapping, ACESFilmicToneMapping, AgXToneMapping, NeutralToneMapping, Group, Loader, FileLoader, MaterialLoader, ObjectLoader } from './three.core.js';
 export { AdditiveAnimationBlendMode, AnimationAction, AnimationClip, AnimationLoader, AnimationMixer, AnimationObjectGroup, AnimationUtils, ArcCurve, ArrowHelper, AttachedBindMode, Audio, AudioAnalyser, AudioContext, AudioListener, AudioLoader, AxesHelper, BasicDepthPacking, BatchedMesh, Bone, BooleanKeyframeTrack, Box2, Box3, Box3Helper, BoxHelper, BufferGeometryLoader, Cache, Camera, CameraHelper, CanvasTexture, CapsuleGeometry, CatmullRomCurve3, CircleGeometry, Clock, ColorKeyframeTrack, CompressedArrayTexture, CompressedCubeTexture, CompressedTexture, CompressedTextureLoader, ConeGeometry, ConstantAlphaFactor, ConstantColorFactor, Controls, CubeTextureLoader, CubicBezierCurve, CubicBezierCurve3, CubicInterpolant, CullFaceFrontBack, Curve, CurvePath, CustomToneMapping, Cylindrical, Data3DTexture, DataTextureLoader, DataUtils, DefaultLoadingManager, DetachedBindMode, DirectionalLightHelper, DiscreteInterpolant, DodecahedronGeometry, DynamicCopyUsage, DynamicReadUsage, EdgesGeometry, EllipseCurve, ExternalTexture, ExtrudeGeometry, Fog, FogExp2, GLBufferAttribute, GLSL1, GLSL3, GridHelper, HemisphereLightHelper, IcosahedronGeometry, ImageBitmapLoader, ImageLoader, ImageUtils, InstancedBufferGeometry, InstancedMesh, Int16BufferAttribute, Int32BufferAttribute, Int8BufferAttribute, Interpolant, InterpolateDiscrete, InterpolateLinear, InterpolateSmooth, InterpolationSamplingMode, InterpolationSamplingType, KeyframeTrack, LOD, LatheGeometry, Layers, Light, Line, Line3, LineCurve, LineCurve3, LineLoop, LineSegments, LinearInterpolant, LinearMipMapNearestFilter, LoaderUtils, LoadingManager, LoopOnce, LoopPingPong, LoopRepeat, MOUSE, MeshDepthMaterial, MeshDistanceMaterial, NearestMipMapLinearFilter, NearestMipMapNearestFilter, NormalAnimationBlendMode, NumberKeyframeTrack, OctahedronGeometry, OneMinusConstantAlphaFactor, OneMinusConstantColorFactor, Path, PlaneHelper, PointLightHelper, Points, PolarGridHelper, PolyhedronGeometry, PositionalAudio, PropertyBinding, PropertyMixer, QuadraticBezierCurve, QuadraticBezierCurve3, QuaternionKeyframeTrack, QuaternionLinearInterpolant, RGBADepthPacking, RGBDepthPacking, RGB_BPTC_SIGNED_Format, RGB_BPTC_UNSIGNED_Format, RGDepthPacking, RawShaderMaterial, Ray, Raycaster, RenderTarget3D, RingGeometry, ShaderMaterial, Shape, ShapeGeometry, ShapePath, ShapeUtils, Skeleton, SkeletonHelper, SkinnedMesh, Source, Spherical, SphericalHarmonics3, SplineCurve, SpotLightHelper, Sprite, StaticCopyUsage, StaticReadUsage, StereoCamera, StreamCopyUsage, StreamDrawUsage, StreamReadUsage, StringKeyframeTrack, TOUCH, TetrahedronGeometry, TextureLoader, TextureUtils, Timer, TorusGeometry, TorusKnotGeometry, Triangle, TriangleFanDrawMode, TriangleStripDrawMode, TrianglesDrawMode, TubeGeometry, Uint8BufferAttribute, Uint8ClampedBufferAttribute, Uniform, UniformsGroup, VectorKeyframeTrack, VideoFrameTexture, VideoTexture, WebGL3DRenderTarget, WebGLArrayRenderTarget, WebGLRenderTarget, WireframeGeometry, WrapAroundEnding, ZeroCurvatureEnding, ZeroSlopeEnding, getConsoleFunction, setConsoleFunction } from './three.core.js';
@@ -32472,7 +32473,13 @@ class Textures extends DataMap {
 			depthTexture.image.height = mipHeight;
 			depthTexture.image.depth = size.depth;
 			depthTexture.renderTarget = renderTarget;
-			depthTexture.isArrayTexture = renderTarget.multiview === true && size.depth > 1;
+
+			// Determine if depth texture should be an array texture:
+			// - Either useArrayDepthTexture is explicitly set, OR multiview is enabled (for backward compat)
+			// - AND there are multiple layers (depth > 1)
+			// - AND MSAA is not enabled (WebGPU doesn't support multisampled depth array textures)
+			const useArrayDepth = renderTarget.useArrayDepthTexture || renderTarget.multiview;
+			depthTexture.isArrayTexture = size.depth > 1 && renderTarget.samples <= 1 && useArrayDepth;
 
 			depthTextureMips[ activeMipmapLevel ] = depthTexture;
 
@@ -53751,6 +53758,10 @@ const _outputNodeMap = new WeakMap();
 const _chainKeys$1 = [];
 const _cacheKeyValues = [];
 
+// Dedicated uniform for output pass array layer selection
+// This is separate from cameraIndex to avoid the sharedUniformGroup complexity
+const _outputLayerIndex = /*@__PURE__*/ uniform( 0, 'int' ).setGroup( renderGroup );
+
 /**
  * This renderer module manages node-related objects and is the
  * primary interface between the renderer and the node system.
@@ -54455,13 +54466,44 @@ class Nodes extends DataMap {
 		const renderer = this.renderer;
 		const cacheKey = this.getOutputCacheKey();
 
-		const output = outputTarget.isArrayTexture ?
-			texture3D( outputTarget, vec3( screenUV, builtin( 'gl_ViewID_OVR' ) ) ).renderOutput( renderer.toneMapping, renderer.currentColorSpace ) :
-			texture( outputTarget, screenUV ).renderOutput( renderer.toneMapping, renderer.currentColorSpace );
+		let output;
+
+		if ( outputTarget.isArrayTexture ) {
+
+			if ( ! this.backend.isWebGLBackend ) {
+
+				// For array textures, use .depth() to specify the array layer
+				// _outputLayerIndex is a renderGroup uniform that's updated per-layer during output pass
+				output = texture( outputTarget, screenUV ).depth( _outputLayerIndex ).renderOutput( renderer.toneMapping, renderer.currentColorSpace );
+
+			} else {
+
+				// For WebGL, use gl_ViewID_OVR for multiview rendering
+				output = texture3D( outputTarget, vec3( screenUV, builtin( 'gl_ViewID_OVR' ) ) ).renderOutput( renderer.toneMapping, renderer.currentColorSpace );
+
+			}
+
+		} else {
+
+			output = texture( outputTarget, screenUV ).renderOutput( renderer.toneMapping, renderer.currentColorSpace );
+
+		}
 
 		_outputNodeMap.set( outputTarget, cacheKey );
 
 		return output;
+
+	}
+
+	/**
+	 * Sets the output layer index for array texture output pass.
+	 * This should be called before each layer render during the output pass.
+	 *
+	 * @param {number} index - The layer index.
+	 */
+	setOutputLayerIndex( index ) {
+
+		_outputLayerIndex.value = index;
 
 	}
 
@@ -55414,6 +55456,7 @@ class XRManager extends EventDispatcher {
 		 * @readonly
 		 */
 		this._supportsGlBinding = typeof XRWebGLBinding !== 'undefined';
+		this._supportsWebGPUBinding = typeof XRGPUBinding !== 'undefined';
 
 		this._frameBufferTargets = null;
 
@@ -55575,6 +55618,10 @@ class XRManager extends EventDispatcher {
 		 * @default null
 		 */
 		this._glBinding = null;
+
+		this._webgpuBinding = null;
+
+		this._backend = null;
 
 		/**
 		 * A reference to the current XR projection layer.
@@ -55843,6 +55890,18 @@ class XRManager extends EventDispatcher {
 		}
 
 		return this._glBinding;
+
+	}
+
+	getWebGPUBinding() {
+
+		if ( this._webgpuBinding === null && this._supportsWebGPUBinding ) {
+
+			this._webgpuBinding = new XRGPUBinding( this._session, this._backend.device );
+
+		}
+
+		return this._webgpuBinding;
 
 	}
 
@@ -56151,17 +56210,14 @@ class XRManager extends EventDispatcher {
 	async setSession( session ) {
 
 		const renderer = this._renderer;
-		const backend = renderer.backend;
+		this._backend = renderer.backend;
 
 		this._gl = renderer.getContext();
 		const gl = this._gl;
-		const attributes = gl.getContextAttributes();
 
 		this._session = session;
 
 		if ( session !== null ) {
-
-			if ( backend.isWebGPUBackend === true ) throw new Error( 'THREE.XRManager: XR is currently not supported with a WebGPU backend. Use WebGL by passing "{ forceWebGL: true }" to the constructor of the renderer.' );
 
 			session.addEventListener( 'select', this._onSessionEvent );
 			session.addEventListener( 'selectstart', this._onSessionEvent );
@@ -56172,8 +56228,6 @@ class XRManager extends EventDispatcher {
 			session.addEventListener( 'end', this._onSessionEnd );
 			session.addEventListener( 'inputsourceschange', this._onInputSourcesChange );
 
-			await backend.makeXRCompatible();
-
 			this._currentPixelRatio = renderer.getPixelRatio();
 			renderer.getSize( this._currentSize );
 
@@ -56183,13 +56237,41 @@ class XRManager extends EventDispatcher {
 
 			//
 
-			if ( this._supportsLayers === true ) {
+			if ( this._session.enabledFeatures.includes( 'webgpu' ) ) {
+
+				const glProjLayer = this.getWebGPUBinding().createProjectionLayer( {
+					colorFormat: 'rgba8unorm',
+					depthStencilFormat: 'depth24plus' } );
+				this._glProjLayer = glProjLayer;
+				const layersArray = [ glProjLayer ];
+
+				session.updateRenderState( { layers: layersArray } );
+
+				this._referenceSpace = await session.requestReferenceSpace( this.getReferenceSpaceType() );
+
+				this._xrRenderTarget = new RenderTarget( glProjLayer.textureWidth, glProjLayer.textureHeight, {
+					depth: 2,
+					minFilter: LinearFilter,
+					magFilter: LinearFilter,
+					depthBuffer: true,
+					multiview: false,
+					useArrayDepthTexture: true,
+					samples: 0
+				} );
+
+				this._xrRenderTarget.texture.isArrayTexture = true;
+
+			} else if ( this._supportsLayers === true ) {
 
 				// default path using XRProjectionLayer
 
 				let depthFormat = null;
 				let depthType = null;
 				let glDepthFormat = null;
+
+				const attributes = gl.getContextAttributes();
+				await this._backend.makeXRCompatible();
+				this.setFoveation( this.getFoveation() );
 
 				if ( renderer.depth ) {
 
@@ -56273,6 +56355,8 @@ class XRManager extends EventDispatcher {
 			} else {
 
 				// fallback to XRWebGLLayer
+				await this._backend.makeXRCompatible();
+				this.setFoveation( this.getFoveation() );
 
 				const layerInit = {
 					antialias: renderer.currentSamples > 0,
@@ -56309,8 +56393,6 @@ class XRManager extends EventDispatcher {
 			}
 
 			//
-
-			this.setFoveation( this.getFoveation() );
 
 			renderer._animation.setAnimationLoop( this._onAnimationFrame );
 			renderer._animation.setContext( session );
@@ -56799,7 +56881,16 @@ function onAnimationFrame( time, frame ) {
 
 		const views = pose.views;
 
-		if ( this._glBaseLayer !== null ) {
+		// Check if we're using WebGPU backend with XRGPUBinding
+		const isWebGPUBackend = backend.isWebGPUBackend === true;
+		const webgpuBinding = isWebGPUBackend ? this.getWebGPUBinding() : null;
+
+		// For WebGPU path: collect color textures and view descriptors from all views
+		const colorTextures = [];
+		const viewDescriptors = [];
+		let depthTexture = null;
+
+		if ( this._glBaseLayer !== null && ! isWebGPUBackend ) {
 
 			backend.setXRTarget( glBaseLayer.framebuffer );
 
@@ -56822,8 +56913,32 @@ function onAnimationFrame( time, frame ) {
 
 			let viewport;
 
-			if ( this._supportsLayers === true ) {
+			if ( isWebGPUBackend && webgpuBinding !== null ) {
 
+				// WebGPU path: Use XRGPUBinding to get GPUTextures directly
+				const gpuSubImage = webgpuBinding.getViewSubImage( this._glProjLayer, view );
+				viewport = gpuSubImage.viewport;
+
+				// Collect color textures for each view (for MRT array)
+				colorTextures.push( gpuSubImage.colorTexture );
+
+				// Collect view descriptor for each view - this is critical for creating proper 2D views into the array texture
+				if ( gpuSubImage.getViewDescriptor ) {
+
+					viewDescriptors.push( gpuSubImage.getViewDescriptor() );
+
+				}
+
+				// Store depth texture from first view (shared across all views)
+				if ( i === 0 ) {
+
+					depthTexture = null;//( this._glProjLayer.ignoreDepthValues && ! this._useMultiview ) ? null : gpuSubImage.depthStencilTexture;
+
+				}
+
+			} else if ( this._supportsLayers === true ) {
+
+				// WebGL path: Use XRWebGLBinding
 				const glSubImage = this._glBinding.getViewSubImage( this._glProjLayer, view );
 				viewport = glSubImage.viewport;
 
@@ -56873,6 +56988,18 @@ function onAnimationFrame( time, frame ) {
 				cameraXR.cameras.push( camera );
 
 			}
+
+		}
+
+		// WebGPU path: Register all collected color textures after the loop
+		if ( isWebGPUBackend && webgpuBinding !== null && colorTextures.length > 0 ) {
+
+			backend.setXRRenderTargetTextures(
+				this._xrRenderTarget,
+				colorTextures, // Array of GPUTextures, one per view
+				depthTexture,
+				viewDescriptors // Array of view descriptors, one per view
+			);
 
 		}
 
@@ -58542,8 +58669,31 @@ class Renderer {
 		frameBufferTarget.scissor.multiplyScalar( canvasTarget._pixelRatio );
 		frameBufferTarget.scissorTest = canvasTarget._scissorTest;
 		frameBufferTarget.multiview = outputRenderTarget !== null ? outputRenderTarget.multiview : false;
+		frameBufferTarget.useArrayDepthTexture = outputRenderTarget !== null ? outputRenderTarget.useArrayDepthTexture : false;
 		frameBufferTarget.resolveDepthBuffer = outputRenderTarget !== null ? outputRenderTarget.resolveDepthBuffer : true;
 		frameBufferTarget._autoAllocateDepthBuffer = outputRenderTarget !== null ? outputRenderTarget._autoAllocateDepthBuffer : false;
+
+		// Propagate samples from output render target (important for XR which may have samples=0)
+		// However, when the renderer has MSAA enabled (this.samples > 0), use the renderer's samples
+		// to ensure MSAA is applied during scene rendering. The MSAA resolve happens when copying to output.
+		if ( outputRenderTarget !== null ) {
+
+			frameBufferTarget.samples = this.samples > 0 ? this.samples : outputRenderTarget.samples;
+
+		}
+
+		// Propagate array texture flag for XR/multi-layer rendering
+		// IMPORTANT: When MSAA is enabled (this.samples > 0), we must NOT use array textures because
+		// WebGPU doesn't support multisampled array textures. Per-eye rendering will be used instead.
+		if ( outputRenderTarget !== null && outputRenderTarget.texture.isArrayTexture && this.samples === 0 ) {
+
+			frameBufferTarget.texture.isArrayTexture = true;
+
+		} else {
+
+			frameBufferTarget.texture.isArrayTexture = false;
+
+		}
 
 		return frameBufferTarget;
 
@@ -58657,6 +58807,76 @@ class Renderer {
 
 			if ( xr.cameraAutoUpdate === true ) xr.updateCamera( camera );
 			camera = xr.getCamera(); // use XR camera for rendering
+
+			// For XR with MSAA and ArrayCamera, we need to render each eye separately
+			// because MSAA textures cannot be array textures in WebGPU.
+			// Flow: left eye scene → left tone mapping → right eye scene → right tone mapping
+			if ( camera.isArrayCamera && this.samples > 0 && frameBufferTarget !== null ) {
+
+				const xrCameras = camera.cameras;
+				const xrOutputRenderTarget = outputRenderTarget;
+
+				// Render each eye separately using the EXISTING render infrastructure
+				for ( let eyeIndex = 0; eyeIndex < xrCameras.length; eyeIndex ++ ) {
+
+					const eyeCamera = xrCameras[ eyeIndex ];
+
+					// Temporarily disable XR so _renderScene uses the single-layer framebuffer normally
+					xr.enabled = false;
+
+					// For scene rendering, output goes to the single-layer MSAA framebuffer
+					// (not directly to XR output - that happens in the tone mapping step)
+					this.setRenderTarget( frameBufferTarget, 0, activeMipmapLevel );
+
+					// Call the existing _renderScene to render this eye's scene
+					// This goes through the full initialization path
+					this._renderScene( scene, eyeCamera, false );
+
+					// Re-enable XR temporarily for proper output handling
+					xr.enabled = true;
+
+					// Now output the rendered frame to the appropriate XR layer
+					this.setRenderTarget( xrOutputRenderTarget, eyeIndex, activeMipmapLevel );
+					this._activeCubeFace = eyeIndex;
+
+					// Render the output quad (tone mapping) to copy to XR layer
+					const quad = this._quad;
+
+					if ( this._nodes.hasOutputChange( frameBufferTarget.texture ) ) {
+
+						quad.material.fragmentNode = this._nodes.getOutputNode( frameBufferTarget.texture );
+						quad.material.needsUpdate = true;
+
+					}
+
+					// Disable XR again for the quad render to avoid ArrayCamera handling
+					xr.enabled = false;
+					const savedAutoClear = this.autoClear;
+					this.autoClear = false;
+
+					this._renderScene( quad, quad.camera, false );
+
+					this.autoClear = savedAutoClear;
+
+				}
+
+				// Restore XR state
+				xr.enabled = true;
+
+				// Clean up and return
+				nodeFrame.renderId = previousRenderId;
+				this._currentRenderContext = previousRenderContext;
+				this._currentRenderObjectFunction = previousRenderObjectFunction;
+				this._handleObjectFunction = previousHandleObjectFunction;
+
+				this._callDepth --;
+
+				sceneRef.onAfterRender( this, scene, camera, renderTarget );
+				this.inspector.finishRender( null );
+
+				return null;
+
+			}
 
 		}
 
@@ -58872,7 +59092,34 @@ class Renderer {
 		this.autoClear = false;
 		this.xr.enabled = false;
 
-		this._renderScene( quad, quad.camera, false );
+		// For XR array textures, we need to render the output quad once per layer
+		// Each layer needs to sample from the correct array slice and write to the correct output layer
+		if ( renderTarget.texture.isArrayTexture && renderTarget.texture.image.depth > 1 ) {
+
+			const layerCount = renderTarget.texture.image.depth;
+
+			for ( let layer = 0; layer < layerCount; layer ++ ) {
+
+				// Set the layer index for sampling from the array texture
+				// This updates a renderGroup uniform that's synced before each draw
+				this._nodes.setOutputLayerIndex( layer );
+
+				// Set the active layer for the render target
+				this._activeCubeFace = layer;
+
+				this._renderScene( quad, quad.camera, false );
+
+			}
+
+			// Reset the layer index
+			this._nodes.setOutputLayerIndex( 0 );
+			this._activeCubeFace = 0;
+
+		} else {
+
+			this._renderScene( quad, quad.camera, false );
+
+		}
 
 		this.autoClear = currentAutoClear;
 		this.xr.enabled = currentXR;
@@ -71034,7 +71281,9 @@ const GPUCompareFunction = {
 };
 
 const GPUStoreOp = {
-	Store: 'store'};
+	Store: 'store',
+	Discard: 'discard'
+};
 
 const GPULoadOp = {
 	Load: 'load',
@@ -72100,6 +72349,13 @@ class WebGPUTextureUtils {
 
 		if ( textureData.initialized ) {
 
+			// Skip creation for external XR textures - they are already set up
+			if ( textureData.externalTexture === true ) {
+
+				return;
+
+			}
+
 			throw new Error( 'WebGPUTextureUtils: Texture already initialized.' );
 
 		}
@@ -72194,6 +72450,17 @@ class WebGPUTextureUtils {
 			msaaTextureDescriptorGPU.label = msaaTextureDescriptorGPU.label + '-msaa';
 			msaaTextureDescriptorGPU.sampleCount = samples;
 			msaaTextureDescriptorGPU.mipLevelCount = 1; // See https://www.w3.org/TR/webgpu/#texture-creation
+
+			// MSAA textures cannot be array textures - they must have exactly 1 layer
+			if ( msaaTextureDescriptorGPU.size.depthOrArrayLayers > 1 ) {
+
+				msaaTextureDescriptorGPU.size = {
+					width: msaaTextureDescriptorGPU.size.width,
+					height: msaaTextureDescriptorGPU.size.height,
+					depthOrArrayLayers: 1
+				};
+
+			}
 
 			textureData.msaaTexture = backend.device.createTexture( msaaTextureDescriptorGPU );
 
@@ -74436,6 +74703,8 @@ class WGSLNodeBuilder extends NodeBuilder {
 
 	/**
 	 * Generates the WGSL snippet when sampling textures with a bias to the mip level.
+	/**
+	 * Generates the WGSL snippet for sampling/loading the given texture with bias.
 	 *
 	 * @param {Texture} texture - The texture.
 	 * @param {string} textureProperty - The name of the texture uniform in the shader.
@@ -74450,13 +74719,27 @@ class WGSLNodeBuilder extends NodeBuilder {
 
 		if ( shaderStage === 'fragment' ) {
 
-			if ( offsetSnippet ) {
+			if ( depthSnippet ) {
 
-				return `textureSampleBias( ${ textureProperty }, ${ textureProperty }_sampler, ${ uvSnippet }, ${ biasSnippet }, ${ offsetSnippet } )`;
+				if ( offsetSnippet ) {
+
+					return `textureSampleBias( ${ textureProperty }, ${ textureProperty }_sampler, ${ uvSnippet }, ${ depthSnippet }, ${ biasSnippet }, ${ offsetSnippet } )`;
+
+				}
+
+				return `textureSampleBias( ${ textureProperty }, ${ textureProperty }_sampler, ${ uvSnippet }, ${ depthSnippet }, ${ biasSnippet } )`;
+
+			} else {
+
+				if ( offsetSnippet ) {
+
+					return `textureSampleBias( ${ textureProperty }, ${ textureProperty }_sampler, ${ uvSnippet }, ${ biasSnippet }, ${ offsetSnippet } )`;
+
+				}
+
+				return `textureSampleBias( ${ textureProperty }, ${ textureProperty }_sampler, ${ uvSnippet }, ${ biasSnippet } )`;
 
 			}
-
-			return `textureSampleBias( ${ textureProperty }, ${ textureProperty }_sampler, ${ uvSnippet }, ${ biasSnippet } )`;
 
 		} else {
 
@@ -74622,7 +74905,12 @@ class WGSLNodeBuilder extends NodeBuilder {
 
 				if ( type === 'texture' || type === 'storageTexture' ) {
 
-					if ( node.value.is3DTexture === true ) {
+					if ( node.value.isArrayTexture === true || node.value.isDataArrayTexture === true || node.value.isCompressedArrayTexture === true ) {
+
+						// Array textures should use regular NodeSampledTexture, not NodeSampledTexture3D
+						texture = new NodeSampledTexture( uniformNode.name, uniformNode.node, group, access );
+
+					} else if ( node.value.is3DTexture === true ) {
 
 						texture = new NodeSampledTexture3D( uniformNode.name, uniformNode.node, group, access );
 
@@ -77077,13 +77365,15 @@ class WebGPUBindingUtils {
 
 							dimensionViewGPU = GPUTextureViewDimension.Cube;
 
+						} else if ( binding.texture.isArrayTexture || binding.texture.isDataArrayTexture || binding.texture.isCompressedArrayTexture ) {
+
+							// Check texture's actual isArrayTexture property FIRST, before binding's cached isSampledTexture3D
+							// This handles cases where the texture's array status is set after shader compilation (e.g., XR textures)
+							dimensionViewGPU = GPUTextureViewDimension.TwoDArray;
+
 						} else if ( binding.isSampledTexture3D ) {
 
 							dimensionViewGPU = GPUTextureViewDimension.ThreeD;
-
-						} else if ( binding.texture.isArrayTexture || binding.texture.isDataArrayTexture || binding.texture.isCompressedArrayTexture ) {
-
-							dimensionViewGPU = GPUTextureViewDimension.TwoDArray;
 
 						} else {
 
@@ -78637,7 +78927,8 @@ class WebGPUBackend extends Backend {
 
 			const adapterOptions = {
 				powerPreference: parameters.powerPreference,
-				featureLevel: parameters.compatibilityMode ? 'compatibility' : undefined
+				featureLevel: parameters.compatibilityMode ? 'compatibility' : undefined,
+				xrCompatible: renderer.xr.enabled
 			};
 
 			const adapter = ( typeof navigator !== 'undefined' ) ? await navigator.gpu.requestAdapter( adapterOptions ) : null;
@@ -78697,6 +78988,55 @@ class WebGPUBackend extends Backend {
 		this.trackTimestamp = this.trackTimestamp && this.hasFeature( GPUFeatureName.TimestampQuery );
 
 		this.updateSize();
+
+	}
+
+	/**
+	 * Configures the given XR render target with external GPUTextures.
+	 *
+	 * This method is used when rendering with WebXR and the WebGPU backend
+	/**
+	 * Registers external GPU textures from XRGPUBinding for use in rendering.
+	 * This allows WebXR sessions to provide their own textures for rendering.
+	 *
+	 * @param {RenderTarget} renderTarget - The render target to register the textures for.
+	 * @param {GPUTexture|Array<GPUTexture>} colorTextures - The color GPUTexture(s) from XRSubImage. Can be a single texture or array for MRT.
+	 * @param {?GPUTexture} [depthTexture=null] - The depth/stencil GPUTexture from XRSubImage.
+	 * @param {?Array<Object>} [viewDescriptors=null] - Array of view descriptors from XRSubImage.getViewDescriptor(), one per view.
+	 */
+	setXRRenderTargetTextures( renderTarget, colorTextures, depthTexture = null, viewDescriptors = null ) {
+
+		// Handle both single texture and array of textures (for MRT)
+		const colorTextureArray = Array.isArray( colorTextures ) ? colorTextures : [ colorTextures ];
+
+		// For XR, all views typically share the same array texture, just with different view descriptors
+		// So we use the first color texture and store the view descriptors for later use
+		const colorTexture = colorTextureArray[ 0 ];
+
+		// Register color texture - store as 'texture' so view creation code can find it
+		// Also store the format from the GPUTexture for pipeline creation
+		this.set( renderTarget.texture, {
+			texture: colorTexture,
+			format: colorTexture.format,
+			externalTexture: true,
+			xrViewDescriptors: viewDescriptors,
+			initialized: true
+		} );
+
+		// Register depth texture
+		if ( depthTexture !== null ) {
+
+			this.set( renderTarget.depthTexture, {
+				texture: depthTexture,
+				format: depthTexture.format,
+				externalTexture: true,
+				xrViewDescriptors: viewDescriptors,
+				initialized: true
+			} );
+
+			renderTarget._autoAllocateDepthBuffer = false;
+
+		}
 
 	}
 
@@ -78858,7 +79198,7 @@ class WebGPUBackend extends Backend {
 	}
 
 	/**
-	 * Internal to determine if the current render target is a render target array with depth 2D array texture.
+	 * Returns whether the render target is a render target array with depth 2D array texture.
 	 *
 	 * @param {RenderContext} renderContext - The render context.
 	 * @return {boolean} Whether the render target is a render target array with depth 2D array texture.
@@ -78867,7 +79207,7 @@ class WebGPUBackend extends Backend {
 	 */
 	_isRenderCameraDepthArray( renderContext ) {
 
-		return renderContext.depthTexture && renderContext.depthTexture.image.depth > 1 && renderContext.camera.isArrayCamera;
+		return renderContext.depthTexture && renderContext.depthTexture.isArrayTexture === true && renderContext.camera.isArrayCamera;
 
 	}
 
@@ -78884,12 +79224,46 @@ class WebGPUBackend extends Backend {
 		const renderTarget = renderContext.renderTarget;
 		const renderTargetData = this.get( renderTarget );
 
+		// Check if any textures are external XR textures - these should not be cached
+		// because XR textures can change every frame
+		const textures = renderContext.textures;
+		let hasExternalXRTexture = false;
+
+		if ( textures ) {
+
+			for ( let i = 0; i < textures.length; i ++ ) {
+
+				const textureData = this.get( textures[ i ] );
+				if ( textureData.externalTexture === true ) {
+
+					hasExternalXRTexture = true;
+					break;
+
+				}
+
+			}
+
+		}
+
+		// Also check depth texture
+		if ( renderContext.depthTexture ) {
+
+			const depthTextureData = this.get( renderContext.depthTexture );
+			if ( depthTextureData.externalTexture === true ) {
+
+				hasExternalXRTexture = true;
+
+			}
+
+		}
+
 		let descriptors = renderTargetData.descriptors;
 
 		if ( descriptors === undefined ||
 			renderTargetData.width !== renderTarget.width ||
 			renderTargetData.height !== renderTarget.height ||
-			renderTargetData.samples !== renderTarget.samples
+			renderTargetData.samples !== renderTarget.samples ||
+			hasExternalXRTexture // Don't use cache for XR textures
 		) {
 
 			descriptors = {};
@@ -78901,9 +79275,8 @@ class WebGPUBackend extends Backend {
 		const cacheKey = renderContext.getCacheKey();
 		let descriptorBase = descriptors[ cacheKey ];
 
-		if ( descriptorBase === undefined ) {
+		if ( descriptorBase === undefined || hasExternalXRTexture ) {
 
-			const textures = renderContext.textures;
 			const textureViews = [];
 
 			let sliceIndex;
@@ -78914,77 +79287,116 @@ class WebGPUBackend extends Backend {
 
 				const textureData = this.get( textures[ i ] );
 
-				const viewDescriptor = {
-					label: `colorAttachment_${ i }`,
-					baseMipLevel: renderContext.activeMipmapLevel,
-					mipLevelCount: 1,
-					baseArrayLayer: renderContext.activeCubeFace,
-					arrayLayerCount: 1,
-					dimension: GPUTextureViewDimension.TwoD
-				};
+				// Check if this is an external XR texture with view descriptors
+				// Only create multiple color attachments when using an array camera (XR scene rendering)
+				// For output passes (non-array camera), we need only 1 color attachment
+				if ( textureData.externalTexture === true && textureData.xrViewDescriptors && textureData.xrViewDescriptors.length > 0 && renderContext.camera.isArrayCamera ) {
 
-				if ( renderTarget.isRenderTarget3D ) {
+					// XR path: Use the view descriptors from XRGPUBinding to create proper 2D views
+					for ( let viewIndex = 0; viewIndex < textureData.xrViewDescriptors.length; viewIndex ++ ) {
 
-					sliceIndex = renderContext.activeCubeFace;
+						const xrViewDescriptor = textureData.xrViewDescriptors[ viewIndex ];
+						const textureView = textureData.texture.createView( xrViewDescriptor );
 
-					viewDescriptor.baseArrayLayer = 0;
-					viewDescriptor.dimension = GPUTextureViewDimension.ThreeD;
-					viewDescriptor.depthOrArrayLayers = textures[ i ].image.depth;
+						textureViews.push( {
+							view: textureView,
+							resolveTarget: undefined,
+							depthSlice: undefined
+						} );
 
-				} else if ( renderTarget.isRenderTarget && textures[ i ].image.depth > 1 ) {
+					}
 
-					if ( isRenderCameraDepthArray === true ) {
+				} else if ( textureData.externalTexture === true ) {
 
-						const cameras = renderContext.camera.cameras;
-						for ( let layer = 0; layer < cameras.length; layer ++ ) {
+					// External XR texture without view descriptors OR non-array camera output pass
+					// Create a simple 2D view for the correct layer based on activeCubeFace
+					const textureView = textureData.texture.createView( {
+						dimension: '2d',
+						baseArrayLayer: renderContext.activeCubeFace,
+						arrayLayerCount: 1
+					} );
 
-							const layerViewDescriptor = {
-								...viewDescriptor,
-								baseArrayLayer: layer,
-								arrayLayerCount: 1,
-								dimension: GPUTextureViewDimension.TwoD
-							};
-							const textureView = textureData.texture.createView( layerViewDescriptor );
-							textureViews.push( {
-								view: textureView,
-								resolveTarget: undefined,
-								depthSlice: undefined
-							} );
+					textureViews.push( {
+						view: textureView,
+						resolveTarget: undefined,
+						depthSlice: undefined
+					} );
+
+				} else {
+
+					const viewDescriptor = {
+						label: `colorAttachment_${ i }`,
+						baseMipLevel: renderContext.activeMipmapLevel,
+						mipLevelCount: 1,
+						baseArrayLayer: renderContext.activeCubeFace,
+						arrayLayerCount: 1,
+						dimension: GPUTextureViewDimension.TwoD
+					};
+
+					if ( renderTarget.isRenderTarget3D ) {
+
+						sliceIndex = renderContext.activeCubeFace;
+
+						viewDescriptor.baseArrayLayer = 0;
+						viewDescriptor.dimension = GPUTextureViewDimension.ThreeD;
+						viewDescriptor.depthOrArrayLayers = textures[ i ].image.depth;
+
+					} else if ( renderTarget.isRenderTarget && textures[ i ].image.depth > 1 ) {
+
+						if ( isRenderCameraDepthArray === true ) {
+
+							const cameras = renderContext.camera.cameras;
+							for ( let layer = 0; layer < cameras.length; layer ++ ) {
+
+								const layerViewDescriptor = {
+									...viewDescriptor,
+									baseArrayLayer: layer,
+									arrayLayerCount: 1,
+									dimension: GPUTextureViewDimension.TwoD
+								};
+								const textureView = textureData.texture.createView( layerViewDescriptor );
+								textureViews.push( {
+									view: textureView,
+									resolveTarget: undefined,
+									depthSlice: undefined
+								} );
+
+							}
+
+						} else {
+
+							viewDescriptor.dimension = GPUTextureViewDimension.TwoDArray;
+							viewDescriptor.depthOrArrayLayers = textures[ i ].image.depth;
 
 						}
 
-					} else {
-
-						viewDescriptor.dimension = GPUTextureViewDimension.TwoDArray;
-						viewDescriptor.depthOrArrayLayers = textures[ i ].image.depth;
-
 					}
 
-				}
+					if ( isRenderCameraDepthArray !== true ) {
 
-				if ( isRenderCameraDepthArray !== true ) {
+						const textureView = textureData.texture.createView( viewDescriptor );
 
-					const textureView = textureData.texture.createView( viewDescriptor );
+						let view, resolveTarget;
 
-					let view, resolveTarget;
+						if ( textureData.msaaTexture !== undefined ) {
 
-					if ( textureData.msaaTexture !== undefined ) {
+							view = textureData.msaaTexture.createView();
+							resolveTarget = textureView;
 
-						view = textureData.msaaTexture.createView();
-						resolveTarget = textureView;
+						} else {
 
-					} else {
+							view = textureView;
+							resolveTarget = undefined;
 
-						view = textureView;
-						resolveTarget = undefined;
+						}
+
+						textureViews.push( {
+							view,
+							resolveTarget,
+							depthSlice: sliceIndex
+						} );
 
 					}
-
-					textureViews.push( {
-						view,
-						resolveTarget,
-						depthSlice: sliceIndex
-					} );
 
 				}
 
@@ -78995,16 +79407,40 @@ class WebGPUBackend extends Backend {
 			if ( renderContext.depth ) {
 
 				const depthTextureData = this.get( renderContext.depthTexture );
-				const options = {};
-				if ( renderContext.depthTexture.isArrayTexture || renderContext.depthTexture.isCubeTexture ) {
 
-					options.dimension = GPUTextureViewDimension.TwoD;
-					options.arrayLayerCount = 1;
-					options.baseArrayLayer = renderContext.activeCubeFace;
+				// Handle external XR depth textures
+				if ( depthTextureData.externalTexture === true ) {
+
+					// XR depth texture - create a simple 2D view or use view descriptors
+					if ( depthTextureData.xrViewDescriptors && depthTextureData.xrViewDescriptors.length > 0 ) {
+
+						// Use the first view descriptor for depth (shared across views)
+						descriptorBase.depthStencilView = depthTextureData.texture.createView( depthTextureData.xrViewDescriptors[ 0 ] );
+
+					} else {
+
+						descriptorBase.depthStencilView = depthTextureData.texture.createView( {
+							dimension: '2d',
+							baseArrayLayer: 0,
+							arrayLayerCount: 1
+						} );
+
+					}
+
+				} else {
+
+					const options = {};
+					if ( renderContext.depthTexture.isArrayTexture || renderContext.depthTexture.isCubeTexture ) {
+
+						options.dimension = GPUTextureViewDimension.TwoD;
+						options.arrayLayerCount = 1;
+						options.baseArrayLayer = renderContext.activeCubeFace;
+
+					}
+
+					descriptorBase.depthStencilView = depthTextureData.texture.createView( options );
 
 				}
-
-				descriptorBase.depthStencilView = depthTextureData.texture.createView( options );
 
 			}
 
@@ -79172,7 +79608,9 @@ class WebGPUBackend extends Backend {
 
 			}
 
-		  depthStencilAttachment.depthStoreOp = GPUStoreOp.Store;
+			// Discard depth if the render target doesn't need to resolve it (e.g., XR framebuffers)
+			const resolveDepth = renderContext.renderTarget === null || renderContext.renderTarget.resolveDepthBuffer !== false;
+			depthStencilAttachment.depthStoreOp = resolveDepth ? GPUStoreOp.Store : GPUStoreOp.Discard;
 
 		}
 
@@ -79189,7 +79627,9 @@ class WebGPUBackend extends Backend {
 
 			}
 
-		  depthStencilAttachment.stencilStoreOp = GPUStoreOp.Store;
+			// Discard stencil if the render target doesn't need to resolve it (e.g., XR framebuffers)
+			const resolveStencil = renderContext.renderTarget === null || renderContext.renderTarget.resolveStencilBuffer !== false;
+			depthStencilAttachment.stencilStoreOp = resolveStencil ? GPUStoreOp.Store : GPUStoreOp.Discard;
 
 		}
 
@@ -80168,7 +80608,8 @@ class WebGPUBackend extends Backend {
 
 					let pass = renderContextData.currentPass;
 					let sets = renderContextData.currentSets;
-					if ( renderContextData.bundleEncoders ) {
+					const isBundleEncoder = renderContextData.bundleEncoders !== undefined;
+					if ( isBundleEncoder ) {
 
 						const bundleEncoder = renderContextData.bundleEncoders[ i ];
 						const bundleSets = renderContextData.bundleSets[ i ];
@@ -80179,7 +80620,8 @@ class WebGPUBackend extends Backend {
 
 
 
-					if ( vp ) {
+					// GPURenderBundleEncoder does not support setViewport, only GPURenderPassEncoder does
+					if ( vp && ! isBundleEncoder ) {
 
 						pass.setViewport(
 							Math.floor( vp.x * pixelRatio ),
@@ -82361,3 +82803,4 @@ class ClippingGroup extends Group {
 }
 
 export { ACESFilmicToneMapping, AONode, AddEquation, AddOperation, AdditiveBlending, AgXToneMapping, AlphaFormat, AlwaysCompare, AlwaysDepth, AlwaysStencilFunc, AmbientLight, AmbientLightNode, AnalyticLightNode, ArrayCamera, ArrayElementNode, ArrayNode, AssignNode, AttributeNode, BackSide, BasicEnvironmentNode, BasicShadowMap, BatchNode, BitcastNode, BlendMode, BoxGeometry, BufferAttribute, BufferAttributeNode, BufferGeometry, BufferNode, BumpMapNode, BundleGroup, BypassNode, ByteType, CanvasTarget, CineonToneMapping, ClampToEdgeWrapping, ClippingGroup, CodeNode, Color, ColorManagement, ColorSpaceNode, Compatibility, ComputeNode, ConstNode, ContextNode, ConvertNode, CubeCamera, CubeDepthTexture, CubeReflectionMapping, CubeRefractionMapping, CubeTexture, CubeTextureNode, CubeUVReflectionMapping, CullFaceBack, CullFaceFront, CullFaceNone, CustomBlending, CylinderGeometry, DataArrayTexture, DataTexture, DebugNode, DecrementStencilOp, DecrementWrapStencilOp, DepthFormat, DepthStencilFormat, DepthTexture, DirectionalLight, DirectionalLightNode, DoubleSide, DstAlphaFactor, DstColorFactor, DynamicDrawUsage, EnvironmentNode, EqualCompare, EqualDepth, EqualStencilFunc, EquirectangularReflectionMapping, EquirectangularRefractionMapping, Euler, EventDispatcher, EventNode, ExpressionNode, FileLoader, Float16BufferAttribute, Float32BufferAttribute, FloatType, FramebufferTexture, FrontFacingNode, FrontSide, Frustum, FrustumArray, FunctionCallNode, FunctionNode, FunctionOverloadingNode, GLSLNodeParser, GreaterCompare, GreaterDepth, GreaterEqualCompare, GreaterEqualDepth, GreaterEqualStencilFunc, GreaterStencilFunc, Group, HalfFloatType, HemisphereLight, HemisphereLightNode, IESSpotLight, IESSpotLightNode, IncrementStencilOp, IncrementWrapStencilOp, IndexNode, IndirectStorageBufferAttribute, InspectorBase, InstanceNode, InstancedBufferAttribute, InstancedInterleavedBuffer, InstancedMeshNode, IntType, InterleavedBuffer, InterleavedBufferAttribute, InvertStencilOp, IrradianceNode, IsolateNode, JoinNode, KeepStencilOp, LessCompare, LessDepth, LessEqualCompare, LessEqualDepth, LessEqualStencilFunc, LessStencilFunc, LightProbe, LightProbeNode, Lighting, LightingContextNode, LightingModel, LightingNode, LightsNode, Line2NodeMaterial, LineBasicMaterial, LineBasicNodeMaterial, LineDashedMaterial, LineDashedNodeMaterial, LinearFilter, LinearMipMapLinearFilter, LinearMipmapLinearFilter, LinearMipmapNearestFilter, LinearSRGBColorSpace, LinearToneMapping, LinearTransfer, Loader, LoopNode, MRTNode, Material, MaterialBlending, MaterialLoader, MaterialNode, MaterialReferenceNode, MathUtils, Matrix2, Matrix3, Matrix4, MaxEquation, MaxMipLevelNode, MemberNode, Mesh, MeshBasicMaterial, MeshBasicNodeMaterial, MeshLambertMaterial, MeshLambertNodeMaterial, MeshMatcapMaterial, MeshMatcapNodeMaterial, MeshNormalMaterial, MeshNormalNodeMaterial, MeshPhongMaterial, MeshPhongNodeMaterial, MeshPhysicalMaterial, MeshPhysicalNodeMaterial, MeshSSSNodeMaterial, MeshStandardMaterial, MeshStandardNodeMaterial, MeshToonMaterial, MeshToonNodeMaterial, MinEquation, MirroredRepeatWrapping, MixOperation, ModelNode, MorphNode, MultiplyBlending, MultiplyOperation, NearestFilter, NearestMipmapLinearFilter, NearestMipmapNearestFilter, NeutralToneMapping, NeverCompare, NeverDepth, NeverStencilFunc, NoBlending, NoColorSpace, NoNormalPacking, NoToneMapping, Node, NodeAccess, NodeAttribute, NodeBuilder, NodeCache, NodeCode, NodeFrame, NodeFunctionInput, NodeLoader, NodeMaterial, NodeMaterialLoader, NodeMaterialObserver, NodeObjectLoader, NodeShaderStage, NodeType, NodeUniform, NodeUpdateType, NodeUtils, NodeVar, NodeVarying, NormalBlending, NormalGAPacking, NormalMapNode, NormalRGPacking, NotEqualCompare, NotEqualDepth, NotEqualStencilFunc, Object3D, Object3DNode, ObjectLoader, ObjectSpaceNormalMap, OneFactor, OneMinusDstAlphaFactor, OneMinusDstColorFactor, OneMinusSrcAlphaFactor, OneMinusSrcColorFactor, OrthographicCamera, OutputStructNode, PCFShadowMap, PCFSoftShadowMap, PMREMGenerator, PMREMNode, ParameterNode, PassNode, PerspectiveCamera, PhongLightingModel, PhysicalLightingModel, Plane, PlaneGeometry, PointLight, PointLightNode, PointUVNode, PointsMaterial, PointsNodeMaterial, PostProcessing, PosterizeNode, ProjectorLight, ProjectorLightNode, PropertyNode, QuadMesh, Quaternion, R11_EAC_Format, RED_GREEN_RGTC2_Format, RED_RGTC1_Format, REVISION, RG11_EAC_Format, RGBAFormat, RGBAIntegerFormat, RGBA_ASTC_10x10_Format, RGBA_ASTC_10x5_Format, RGBA_ASTC_10x6_Format, RGBA_ASTC_10x8_Format, RGBA_ASTC_12x10_Format, RGBA_ASTC_12x12_Format, RGBA_ASTC_4x4_Format, RGBA_ASTC_5x4_Format, RGBA_ASTC_5x5_Format, RGBA_ASTC_6x5_Format, RGBA_ASTC_6x6_Format, RGBA_ASTC_8x5_Format, RGBA_ASTC_8x6_Format, RGBA_ASTC_8x8_Format, RGBA_BPTC_Format, RGBA_ETC2_EAC_Format, RGBA_PVRTC_2BPPV1_Format, RGBA_PVRTC_4BPPV1_Format, RGBA_S3TC_DXT1_Format, RGBA_S3TC_DXT3_Format, RGBA_S3TC_DXT5_Format, RGBFormat, RGBIntegerFormat, RGB_ETC1_Format, RGB_ETC2_Format, RGB_PVRTC_2BPPV1_Format, RGB_PVRTC_4BPPV1_Format, RGB_S3TC_DXT1_Format, RGFormat, RGIntegerFormat, RTTNode, RangeNode, RectAreaLight, RectAreaLightNode, RedFormat, RedIntegerFormat, ReferenceNode, ReflectorNode, ReinhardToneMapping, RemapNode, RenderOutputNode, RenderTarget, RendererReferenceNode, RendererUtils, RepeatWrapping, ReplaceStencilOp, ReverseSubtractEquation, RotateNode, SIGNED_R11_EAC_Format, SIGNED_RED_GREEN_RGTC2_Format, SIGNED_RED_RGTC1_Format, SIGNED_RG11_EAC_Format, SRGBColorSpace, SRGBTransfer, Scene, SceneNode, ScreenNode, ScriptableNode, ScriptableValueNode, SetNode, ShadowBaseNode, ShadowMaterial, ShadowNode, ShadowNodeMaterial, ShortType, SkinningNode, Sphere, SphereGeometry, SplitNode, SpotLight, SpotLightNode, SpriteMaterial, SpriteNodeMaterial, SrcAlphaFactor, SrcAlphaSaturateFactor, SrcColorFactor, StackNode, StaticDrawUsage, Storage3DTexture, StorageArrayElementNode, StorageArrayTexture, StorageBufferAttribute, StorageBufferNode, StorageInstancedBufferAttribute, StorageTexture, StorageTextureNode, StructNode, StructTypeNode, SubBuildNode, SubtractEquation, SubtractiveBlending, TSL, TangentSpaceNormalMap, TempNode, Texture, Texture3DNode, TextureNode, TextureSizeNode, TimestampQuery, ToneMappingNode, ToonOutlinePassNode, UVMapping, Uint16BufferAttribute, Uint32BufferAttribute, UniformArrayNode, UniformGroupNode, UniformNode, UnsignedByteType, UnsignedInt101111Type, UnsignedInt248Type, UnsignedInt5999Type, UnsignedIntType, UnsignedShort4444Type, UnsignedShort5551Type, UnsignedShortType, UserDataNode, VSMShadowMap, VarNode, VaryingNode, Vector2, Vector3, Vector4, VertexColorNode, ViewportDepthNode, ViewportDepthTextureNode, ViewportSharedTextureNode, ViewportTextureNode, VolumeNodeMaterial, WebGLCoordinateSystem, WebGLCubeRenderTarget, WebGPUCoordinateSystem, WebGPURenderer, WebXRController, ZeroFactor, ZeroStencilOp, createCanvasElement, defaultBuildStages, defaultShaderStages, error, log$1 as log, shaderStages, vectorComponents, warn, warnOnce };
+//# sourceMappingURL=three.webgpu.js.map

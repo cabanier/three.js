@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgpu - array camera render target</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link type="text/css" rel="stylesheet" href="example.css">
+	</head>
+	<body>
+
+		<div id="info">
+			<a href="https://threejs.org/" target="_blank" rel="noopener" class="logo-link"></a>
+
+			<div class="title-wrapper">
+				<a href="https://threejs.org/" target="_blank" rel="noopener">three.js</a><span>Array Camera Render Target</span>
+			</div>
+
+			<small>Renders the same scene from multiple camera angles to texture array layers in a single render call.</small>
+		</div>
+
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "../src/Three.WebGPU.js",
+					"three/webgpu": "../src/Three.WebGPU.js",
+					"three/tsl": "../src/Three.TSL.js",
+					"three/addons/": "./jsm/"
+				}
+			}
+		</script>
+
+		<script type="module">
+
+			import * as THREE from 'three/webgpu';
+			import { texture, uv, uniform } from 'three/tsl';
+
+			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+			const CAMERA_COUNT = 4;
+			const TEXTURE_SIZE = 512;
+
+			let renderer, scene, displayScene, displayCamera, controls;
+			let arrayCamera, renderTarget;
+			let displayPlanes = [];
+			let rotatingMesh;
+			let layerUniforms = [];
+
+			init();
+
+			async function init() {
+
+				// Create the renderer
+				renderer = new THREE.WebGPURenderer( { antialias: true } );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.setAnimationLoop( animate );
+				document.body.appendChild( renderer.domElement );
+
+				await renderer.init();
+
+				// Create the scene to be rendered from multiple angles
+				scene = new THREE.Scene();
+				scene.background = new THREE.Color( 0x222222 );
+
+				// Add lights
+				scene.add( new THREE.AmbientLight( 0x404040 ) );
+
+				const light = new THREE.DirectionalLight( 0xffffff, 2 );
+				light.position.set( 5, 5, 5 );
+				scene.add( light );
+
+				// Add some objects to the scene
+				const torusKnot = new THREE.Mesh(
+					new THREE.TorusKnotGeometry( 1, 0.3, 128, 32 ),
+					new THREE.MeshStandardMaterial( { color: 0xff6600, metalness: 0.5, roughness: 0.3 } )
+				);
+				scene.add( torusKnot );
+				rotatingMesh = torusKnot;
+
+				const floor = new THREE.Mesh(
+					new THREE.PlaneGeometry( 10, 10 ),
+					new THREE.MeshStandardMaterial( { color: 0x444444 } )
+				);
+				floor.rotation.x = - Math.PI / 2;
+				floor.position.y = - 2;
+				scene.add( floor );
+
+				// Create sub-cameras positioned around the scene
+				const subCameras = [];
+
+				for ( let i = 0; i < CAMERA_COUNT; i ++ ) {
+
+					const subCamera = new THREE.PerspectiveCamera( 50, 1, 0.1, 100 );
+
+					// Viewport is required for ArrayCamera
+					subCamera.viewport = new THREE.Vector4( 0, 0, TEXTURE_SIZE, TEXTURE_SIZE );
+
+					// Position cameras around the scene (front, right, back, left)
+					const angle = ( i / CAMERA_COUNT ) * Math.PI * 2;
+					subCamera.position.set(
+						Math.sin( angle ) * 5,
+						2,
+						Math.cos( angle ) * 5
+					);
+					subCamera.lookAt( 0, 0, 0 );
+					subCamera.updateMatrixWorld();
+
+					subCameras.push( subCamera );
+
+				}
+
+				// Create ArrayCamera from sub-cameras
+				arrayCamera = new THREE.ArrayCamera( subCameras );
+
+				// Create RenderTarget with texture array using the depth option
+				// The depth option creates texture arrays for both color and depth
+				// multiview: true is needed so the depth texture is created as an array texture
+				renderTarget = new THREE.RenderTarget( TEXTURE_SIZE, TEXTURE_SIZE, {
+					depth: CAMERA_COUNT,  // Creates array textures with CAMERA_COUNT layers
+					minFilter: THREE.LinearFilter,
+					magFilter: THREE.LinearFilter,
+					depthBuffer: true,
+					multiview: true  // Required for depth texture array to work correctly
+				} );
+
+				// Mark the texture as an array texture (needed for proper WGSL shader generation)
+				// This flag is normally only set in setSize(), so we need to set it manually
+				renderTarget.texture.isArrayTexture = true;
+
+				// Create display scene to show the rendered textures
+				createDisplayScene();
+
+				// Handle window resize
+				window.addEventListener( 'resize', onWindowResize );
+
+			}
+
+			function createDisplayScene() {
+
+				// Camera for viewing the display quads
+				displayCamera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.1, 100 );
+				displayCamera.position.set( 0, 0, 8 );
+
+				// OrbitControls for the display view
+				controls = new OrbitControls( displayCamera, renderer.domElement );
+				controls.enableDamping = true;
+
+				// Create 4 planes to display each texture layer
+				const planeGeometry = new THREE.PlaneGeometry( 2, 2 );
+
+				const labels = [ 'Front', 'Right', 'Back', 'Left' ];
+
+				for ( let i = 0; i < CAMERA_COUNT; i ++ ) {
+
+					// Create a uniform for the layer index
+					const layerIndex = uniform( i );
+					layerUniforms.push( layerIndex );
+
+					// Create material that samples from the texture array at this layer
+					const material = new THREE.MeshBasicNodeMaterial();
+					material.colorNode = texture( renderTarget.texture, uv() ).depth( layerIndex );
+
+					const plane = new THREE.Mesh( planeGeometry, material );
+
+					// Arrange planes in a 2x2 grid
+					const col = i % 2;
+					const row = Math.floor( i / 2 );
+					plane.position.set( ( col - 0.5 ) * 2.5, ( 0.5 - row ) * 2.5, 0 );
+
+					displayPlanes.push( plane );
+					scene.add( plane );
+
+				}
+
+			}
+
+			function onWindowResize() {
+
+				displayCamera.aspect = window.innerWidth / window.innerHeight;
+				displayCamera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+			function animate() {
+
+				// Rotate the mesh
+				rotatingMesh.rotation.x += 0.005;
+				rotatingMesh.rotation.y += 0.01;
+
+				// Remove display planes from scene temporarily
+				// (we don't want to render them into the texture array)
+				for ( const plane of displayPlanes ) {
+
+					scene.remove( plane );
+
+				}
+
+				// Render the scene to the texture array
+				// Each sub-camera renders to its corresponding layer
+				renderer.setRenderTarget( renderTarget );
+				renderer.render( scene, arrayCamera );
+				renderer.setRenderTarget( null );
+
+				// Add display planes back
+				for ( const plane of displayPlanes ) {
+
+					scene.add( plane );
+
+				}
+
+				// Render the display view showing all 4 camera views
+				controls.update();
+				renderer.render( scene, displayCamera );
+
+			}
+
+		</script>
+
+	</body>
+</html>
