@@ -1416,6 +1416,17 @@ ${ flowData.code }
 	}
 
 	/**
+	 * Enables multiview rendering for WebGPU XR.
+	 */
+	enableMultiview() {
+
+		this.enableDirective( 'chromium_experimental_multiview', 'vertex' );
+		this.enableDirective( 'chromium_experimental_multiview', 'fragment' );
+		this.getBuiltin( 'view_index', 'viewIndex', 'u32', 'attribute' );
+
+	}
+
+	/**
 	 * Enables hardware clipping.
 	 *
 	 * @param {string} planeCount - The clipping plane count.
@@ -2273,6 +2284,9 @@ fn main( ${shaderData.attributes} ) -> VaryingsStruct {
 	_getWGSLFragmentCode( shaderData ) {
 
 		return `${ this.getSignature() }
+// directives
+${shaderData.directives}
+
 // global
 ${ diagnostics }
 

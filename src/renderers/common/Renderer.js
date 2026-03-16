@@ -1339,7 +1339,7 @@ class Renderer {
 		frameBufferTarget.scissorTest = canvasTarget._scissorTest;
 		frameBufferTarget.multiview = outputRenderTarget !== null ? outputRenderTarget.multiview : false;
 		frameBufferTarget.useArrayDepthTexture = outputRenderTarget !== null ? outputRenderTarget.useArrayDepthTexture : false;
-		frameBufferTarget.resolveDepthBuffer = outputRenderTarget !== null ? outputRenderTarget.resolveDepthBuffer : true;
+		frameBufferTarget.resolveDepthBuffer = false;
 		frameBufferTarget._autoAllocateDepthBuffer = outputRenderTarget !== null ? outputRenderTarget._autoAllocateDepthBuffer : false;
 
 		// Propagate samples from output render target (important for XR which may have samples=0)
@@ -1352,9 +1352,7 @@ class Renderer {
 		}
 
 		// Propagate array texture flag for XR/multi-layer rendering
-		// IMPORTANT: When MSAA is enabled (this.samples > 0), we must NOT use array textures because
-		// WebGPU doesn't support multisampled array textures. Per-eye rendering will be used instead.
-		if ( outputRenderTarget !== null && outputRenderTarget.texture.isArrayTexture && this.samples === 0 ) {
+		if ( outputRenderTarget !== null && outputRenderTarget.texture.isArrayTexture ) {
 
 			frameBufferTarget.texture.isArrayTexture = true;
 
@@ -1477,10 +1475,10 @@ class Renderer {
 			if ( xr.cameraAutoUpdate === true ) xr.updateCamera( camera );
 			camera = xr.getCamera(); // use XR camera for rendering
 
-			// For XR with MSAA and ArrayCamera, we need to render each eye separately
-			// because MSAA textures cannot be array textures in WebGPU.
-			// Flow: left eye scene → left tone mapping → right eye scene → right tone mapping
-			if ( camera.isArrayCamera && this.samples > 0 && frameBufferTarget !== null ) {
+			// For XR with MSAA and ArrayCamera without multiview, we need to render each eye separately.
+			// When multiview is enabled, both eyes are rendered in a single pass even with MSAA.
+			// Flow (per-eye): left eye scene → left tone mapping → right eye scene → right tone mapping
+			if ( camera.isArrayCamera && this.samples > 0 && frameBufferTarget !== null && ! camera.isMultiViewCamera ) {
 
 				const xrCameras = camera.cameras;
 				const xrOutputRenderTarget = outputRenderTarget;
@@ -1489,6 +1487,11 @@ class Renderer {
 				for ( let eyeIndex = 0; eyeIndex < xrCameras.length; eyeIndex ++ ) {
 
 					const eyeCamera = xrCameras[ eyeIndex ];
+
+					// Prevent updateMatrixWorld from overwriting the matrixWorld
+					// that was already correctly computed by XRManager.updateCamera()
+					// (eyeCamera.parent is null, so updateMatrixWorld would reset it to local matrix)
+					eyeCamera.matrixWorldAutoUpdate = false;
 
 					// Temporarily disable XR so _renderScene uses the single-layer framebuffer normally
 					xr.enabled = false;
@@ -1500,6 +1503,8 @@ class Renderer {
 					// Call the existing _renderScene to render this eye's scene
 					// This goes through the full initialization path
 					this._renderScene( scene, eyeCamera, false );
+
+					eyeCamera.matrixWorldAutoUpdate = true;
 
 					// Re-enable XR temporarily for proper output handling
 					xr.enabled = true;

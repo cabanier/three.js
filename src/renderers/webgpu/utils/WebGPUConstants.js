@@ -337,7 +337,8 @@ export const GPUFeatureName = {
 	DualSourceBlending: 'dual-source-blending',
 	Subgroups: 'subgroups',
 	TextureFormatsTier1: 'texture-formats-tier1',
-	TextureFormatsTier2: 'texture-formats-tier2'
+	TextureFormatsTier2: 'texture-formats-tier2',
+	ChromiumExperimentalMultiview: 'chromium-experimental-multiview'
 };
 
 export const GPUFeatureMap = {

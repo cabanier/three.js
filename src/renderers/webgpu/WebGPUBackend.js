@@ -455,6 +455,8 @@ class WebGPUBackend extends Backend {
 	 */
 	_isRenderCameraDepthArray( renderContext ) {
 
+		if ( renderContext.renderTarget && renderContext.renderTarget.multiview ) return false;
+
 		return renderContext.depthTexture && renderContext.depthTexture.isArrayTexture === true && renderContext.camera.isArrayCamera;
 
 	}
@@ -540,17 +542,36 @@ class WebGPUBackend extends Backend {
 				// For output passes (non-array camera), we need only 1 color attachment
 				if ( textureData.externalTexture === true && textureData.xrViewDescriptors && textureData.xrViewDescriptors.length > 0 && renderContext.camera.isArrayCamera ) {
 
-					// XR path: Use the view descriptors from XRGPUBinding to create proper 2D views
-					for ( let viewIndex = 0; viewIndex < textureData.xrViewDescriptors.length; viewIndex ++ ) {
+					if ( renderTarget.multiview ) {
 
-						const xrViewDescriptor = textureData.xrViewDescriptors[ viewIndex ];
-						const textureView = textureData.texture.createView( xrViewDescriptor );
+						// Multiview path: Create a single 2d-array view over both layers
+						const colorArrayView = textureData.texture.createView( {
+							dimension: '2d-array',
+							baseArrayLayer: 0,
+							arrayLayerCount: 2,
+						} );
 
 						textureViews.push( {
-							view: textureView,
+							view: colorArrayView,
 							resolveTarget: undefined,
 							depthSlice: undefined
 						} );
+
+					} else {
+
+						// Non-multiview XR path: Use the view descriptors from XRGPUBinding to create proper 2D views
+						for ( let viewIndex = 0; viewIndex < textureData.xrViewDescriptors.length; viewIndex ++ ) {
+
+							const xrViewDescriptor = textureData.xrViewDescriptors[ viewIndex ];
+							const textureView = textureData.texture.createView( xrViewDescriptor );
+
+							textureViews.push( {
+								view: textureView,
+								resolveTarget: undefined,
+								depthSlice: undefined
+							} );
+
+						}
 
 					}
 
@@ -614,7 +635,8 @@ class WebGPUBackend extends Backend {
 						} else {
 
 							viewDescriptor.dimension = GPUTextureViewDimension.TwoDArray;
-							viewDescriptor.depthOrArrayLayers = textures[ i ].image.depth;
+							viewDescriptor.baseArrayLayer = 0;
+							viewDescriptor.arrayLayerCount = textures[ i ].image.depth;
 
 						}
 
@@ -628,7 +650,7 @@ class WebGPUBackend extends Backend {
 
 						if ( textureData.msaaTexture !== undefined ) {
 
-							view = textureData.msaaTexture.createView();
+							view = textureData.msaaTexture.createView( viewDescriptor );
 							resolveTarget = textureView;
 
 						} else {
@@ -680,9 +702,20 @@ class WebGPUBackend extends Backend {
 					const options = {};
 					if ( renderContext.depthTexture.isArrayTexture || renderContext.depthTexture.isCubeTexture ) {
 
-						options.dimension = GPUTextureViewDimension.TwoD;
-						options.arrayLayerCount = 1;
-						options.baseArrayLayer = renderContext.activeCubeFace;
+						if ( renderTarget.multiview && renderContext.depthTexture.isArrayTexture && renderContext.camera && renderContext.camera.isMultiViewCamera ) {
+
+							// Multiview: create a 2d-array depth view over both layers
+							options.dimension = GPUTextureViewDimension.TwoDArray;
+							options.arrayLayerCount = 2;
+							options.baseArrayLayer = 0;
+
+						} else {
+
+							options.dimension = GPUTextureViewDimension.TwoD;
+							options.arrayLayerCount = 1;
+							options.baseArrayLayer = renderContext.activeCubeFace;
+
+						}
 
 					}
 
@@ -734,6 +767,12 @@ class WebGPUBackend extends Backend {
 			descriptor.depthStencilAttachment = {
 				view: descriptorBase.depthStencilView
 			};
+
+		}
+
+		if ( renderTarget && renderTarget.multiview && renderContext.camera && renderContext.camera.isMultiViewCamera ) {
+
+			descriptor.viewCount = 2;
 
 		}
 
@@ -1813,7 +1852,7 @@ class WebGPUBackend extends Backend {
 
 		};
 
-		if ( renderObject.camera.isArrayCamera && renderObject.camera.cameras.length > 0 ) {
+		if ( renderObject.camera.isArrayCamera && renderObject.camera.cameras.length > 0 && ! renderObject.camera.isMultiViewCamera ) {
 
 			const cameraData = this.get( renderObject.camera );
 			const cameras = renderObject.camera.cameras;

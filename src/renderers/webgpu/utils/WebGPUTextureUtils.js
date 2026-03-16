@@ -329,17 +329,6 @@ class WebGPUTextureUtils {
 			msaaTextureDescriptorGPU.sampleCount = samples;
 			msaaTextureDescriptorGPU.mipLevelCount = 1; // See https://www.w3.org/TR/webgpu/#texture-creation
 
-			// MSAA textures cannot be array textures - they must have exactly 1 layer
-			if ( msaaTextureDescriptorGPU.size.depthOrArrayLayers > 1 ) {
-
-				msaaTextureDescriptorGPU.size = {
-					width: msaaTextureDescriptorGPU.size.width,
-					height: msaaTextureDescriptorGPU.size.height,
-					depthOrArrayLayers: 1
-				};
-
-			}
-
 			textureData.msaaTexture = backend.device.createTexture( msaaTextureDescriptorGPU );
 
 		}

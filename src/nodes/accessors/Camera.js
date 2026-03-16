@@ -3,7 +3,7 @@ import { renderGroup, sharedUniformGroup } from '../core/UniformGroupNode.js';
 import { Vector3 } from '../../math/Vector3.js';
 import { Fn, vec4 } from '../tsl/TSLBase.js';
 import { uniformArray } from './UniformArrayNode.js';
-import { builtin } from './BuiltinNode.js';
+import BuiltinNode, { builtin } from './BuiltinNode.js';
 import { screenSize } from '../display/ScreenNode.js';
 
 /**
@@ -13,6 +13,16 @@ import { screenSize } from '../display/ScreenNode.js';
  * @type {UniformNode<uint>}
  */
 export const cameraIndex = /*@__PURE__*/ uniform( 0, 'uint' ).setName( 'u_cameraIndex' ).setGroup( sharedUniformGroup( 'cameraIndex' ) ).toVarying( 'v_cameraIndex' );
+
+/**
+ * TSL object that represents the multiview view index, passed as a flat varying
+ * from vertex to fragment shader. On Vulkan, `@builtin(view_index)` is only
+ * available in the vertex stage, so it must be forwarded via a varying.
+ *
+ * @tsl
+ * @type {VaryingNode<uint>}
+ */
+export const multiviewIndex = /*@__PURE__*/ new BuiltinNode( 'gl_ViewID_OVR', 'uint' ).toVarying( 'v_viewIndex' );
 
 /**
  * TSL object that represents the `near` value of the camera used for the current render.
@@ -52,7 +62,7 @@ export const cameraProjectionMatrix = /*@__PURE__*/ ( Fn( ( { camera } ) => {
 
 		const cameraProjectionMatrices = uniformArray( matrices ).setGroup( renderGroup ).setName( 'cameraProjectionMatrices' );
 
-		cameraProjectionMatrix = cameraProjectionMatrices.element( camera.isMultiViewCamera ? builtin( 'gl_ViewID_OVR' ) : cameraIndex ).toConst( 'cameraProjectionMatrix' );
+		cameraProjectionMatrix = cameraProjectionMatrices.element( camera.isMultiViewCamera ? multiviewIndex : cameraIndex ).toConst( 'cameraProjectionMatrix' );
 
 	} else {
 
@@ -86,7 +96,7 @@ export const cameraProjectionMatrixInverse = /*@__PURE__*/ ( Fn( ( { camera } ) 
 
 		const cameraProjectionMatricesInverse = uniformArray( matrices ).setGroup( renderGroup ).setName( 'cameraProjectionMatricesInverse' );
 
-		cameraProjectionMatrixInverse = cameraProjectionMatricesInverse.element( camera.isMultiViewCamera ? builtin( 'gl_ViewID_OVR' ) : cameraIndex ).toConst( 'cameraProjectionMatrixInverse' );
+		cameraProjectionMatrixInverse = cameraProjectionMatricesInverse.element( camera.isMultiViewCamera ? multiviewIndex : cameraIndex ).toConst( 'cameraProjectionMatrixInverse' );
 
 	} else {
 
@@ -120,7 +130,7 @@ export const cameraViewMatrix = /*@__PURE__*/ ( Fn( ( { camera } ) => {
 
 		const cameraViewMatrices = uniformArray( matrices ).setGroup( renderGroup ).setName( 'cameraViewMatrices' );
 
-		cameraViewMatrix = cameraViewMatrices.element( camera.isMultiViewCamera ? builtin( 'gl_ViewID_OVR' ) : cameraIndex ).toConst( 'cameraViewMatrix' );
+		cameraViewMatrix = cameraViewMatrices.element( camera.isMultiViewCamera ? multiviewIndex : cameraIndex ).toConst( 'cameraViewMatrix' );
 
 	} else {
 
@@ -154,7 +164,7 @@ export const cameraWorldMatrix = /*@__PURE__*/ ( Fn( ( { camera } ) => {
 
 		const cameraWorldMatrices = uniformArray( matrices ).setGroup( renderGroup ).setName( 'cameraWorldMatrices' );
 
-		cameraWorldMatrix = cameraWorldMatrices.element( camera.isMultiViewCamera ? builtin( 'gl_ViewID_OVR' ) : cameraIndex ).toConst( 'cameraWorldMatrix' );
+		cameraWorldMatrix = cameraWorldMatrices.element( camera.isMultiViewCamera ? multiviewIndex : cameraIndex ).toConst( 'cameraWorldMatrix' );
 
 	} else {
 
@@ -188,7 +198,7 @@ export const cameraNormalMatrix = /*@__PURE__*/ ( Fn( ( { camera } ) => {
 
 		const cameraNormalMatrices = uniformArray( matrices ).setGroup( renderGroup ).setName( 'cameraNormalMatrices' );
 
-		cameraNormalMatrix = cameraNormalMatrices.element( camera.isMultiViewCamera ? builtin( 'gl_ViewID_OVR' ) : cameraIndex ).toConst( 'cameraNormalMatrix' );
+		cameraNormalMatrix = cameraNormalMatrices.element( camera.isMultiViewCamera ? multiviewIndex : cameraIndex ).toConst( 'cameraNormalMatrix' );
 
 	} else {
 
@@ -233,7 +243,7 @@ export const cameraPosition = /*@__PURE__*/ ( Fn( ( { camera } ) => {
 
 		} );
 
-		cameraPosition = cameraPositions.element( camera.isMultiViewCamera ? builtin( 'gl_ViewID_OVR' ) : cameraIndex ).toConst( 'cameraPosition' );
+		cameraPosition = cameraPositions.element( camera.isMultiViewCamera ? multiviewIndex : cameraIndex ).toConst( 'cameraPosition' );
 
 	} else {
 

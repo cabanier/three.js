@@ -980,6 +980,12 @@ class XRManager extends EventDispatcher {
 
 			if ( this._session.enabledFeatures.includes( 'webgpu' ) ) {
 
+				if ( this._useMultiviewIfPossible && renderer.hasFeature( 'chromium-experimental-multiview' ) ) {
+
+					this._useMultiview = true;
+
+				}
+
 				const glProjLayer = this.getWebGPUBinding().createProjectionLayer( {
 					colorFormat: this.getWebGPUBinding().getPreferredColorFormat(),
 					depthStencilFormat: 'depth24plus' } );
@@ -995,7 +1001,7 @@ class XRManager extends EventDispatcher {
 					minFilter: LinearFilter,
 					magFilter: LinearFilter,
 					depthBuffer: true,
-					multiview: false,
+					multiview: this._useMultiview,
 					useArrayDepthTexture: true,
 					samples: 0
 				} );

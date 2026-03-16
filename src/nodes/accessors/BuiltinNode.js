@@ -13,10 +13,11 @@ class BuiltinNode extends Node {
 	 * Constructs a new builtin node.
 	 *
 	 * @param {string} name - The name of the built-in shader variable.
+	 * @param {string} [type='float'] - The node data type.
 	 */
-	constructor( name ) {
+	constructor( name, type = 'float' ) {
 
-		super( 'float' );
+		super( type );
 
 		/**
 		 * The name of the built-in shader variable.
@@ -42,7 +43,13 @@ class BuiltinNode extends Node {
 	 * @param {NodeBuilder} builder - The current node builder.
 	 * @return {string} The generated code snippet.
 	 */
-	generate( /* builder */ ) {
+	generate( builder ) {
+
+		if ( this.name === 'gl_ViewID_OVR' && builder.renderer.backend.isWebGPUBackend ) {
+
+			return 'viewIndex';
+
+		}
 
 		return this.name;
 
