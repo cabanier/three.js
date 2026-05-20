@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spatial CSS Polyfill Example</title>
+<style>
+  :root {
+    color-scheme: dark;
+    front-limit: 4cm;
+  }
+
+  body {
+    color: #e8edf7;
+    font: 18px/1.6 system-ui, sans-serif;
+    margin: 0;
+  }
+
+  html {
+    background: #101319;
+  }
+
+  main {
+    margin: 0 auto;
+    max-width: 760px;
+    padding: 48px 24px 96px;
+    position: relative;
+    z-index: 1;
+  }
+
+  p {
+    margin: 0 0 24px;
+  }
+
+  .portal {
+    margin: 34px 0;
+    min-height: 180px;
+    spatial: portal;
+    portal-stage: 8cm 8cm / 8cm 2cm;
+    front-limit: 4cm;
+  }
+
+  .pushed-box {
+    background: #275c7a;
+    border: 1px solid #7dc8e8;
+    border-radius: 8px;
+    box-shadow: 0 18px 44px rgb(0 0 0 / 28%);
+    color: #f7fcff;
+    margin: 0 auto;
+    max-width: 260px;
+    padding: 22px;
+    position: relative;
+    inset-front: 1cm;
+  }
+
+  .support {
+    display: none;
+  }
+</style>
+</head>
+<body>
+<main>
+  <p>
+    Velvet numbers drift past the windows while quiet circuits trade stories
+    about weather, bread, satellites, and old railway maps.
+  </p>
+  <p>
+    A stack of blue notebooks leans against a brass lamp. Someone has written
+    three impossible passwords on the cover, then crossed out only the vowels.
+  </p>
+  <p>
+    At the corner table, a calendar insists it is Thursday while the wall clock
+    counts backward in five-minute increments. Neither seems especially worried.
+  </p>
+
+  <div class="portal">
+    <div class="pushed-box">
+      The receipt printer wakes up, prints one line of punctuation, and goes
+      back to sleep beside a cup of paper clips and lemon seeds.
+    </div>
+  </div>
+
+  <p>
+    Outside, the sidewalk is busy with umbrellas, bicycle bells, and reflections
+    from shop signs that no one remembers turning on.
+  </p>
+  <p>
+    The hallway keeps a careful rhythm: paper, glass, footsteps, coffee, paper,
+    glass. Every few minutes the elevator opens for nobody in particular.
+  </p>
+  <p>
+    Under the desk, a red cable loops around a silver adapter and disappears
+    behind a row of boxes labeled with months that never happened.
+  </p>
+  <p>
+    By evening, the page has collected enough stray sentences to feel almost
+    organized, though none of them agree on where the story should start.
+  </p>
+  <p>
+    A courier leaves a blank envelope on the windowsill. The envelope is warm,
+    but the room is not, and everyone decides this is probably normal.
+  </p>
+  <p class="support" id="support-message"></p>
+</main>
+
+<script src="./spatial-css-polyfill.js"></script>
+<script>
+  installSpatialCSSPolyfill({
+    debug: true,
+    zIndex: 0,
+  }).catch(error => {
+    const supportMessage = document.getElementById('support-message');
+    supportMessage.style.display = 'block';
+    supportMessage.textContent = error.message;
+  });
+</script>
+</body>
+</html>

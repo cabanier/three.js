@@ -1,0 +1,120 @@
+<!doctype html>
+<html>
+<head><title>Multiview Test</title></head>
+<body>
+<pre id="log"></pre>
+<script>
+function log(msg) {
+  document.getElementById('log').textContent += msg + '\n';
+  console.log(msg);
+}
+
+async function run() {
+  try {
+    const adapter = await navigator.gpu.requestAdapter();
+    log('Adapter: ' + (adapter.info?.device || 'unknown'));
+
+    const device = await adapter.requestDevice({
+      requiredFeatures: ['chromium-experimental-multiview'],
+    });
+    log('Device created with multiview: ' + device.features.has('chromium-experimental-multiview'));
+
+    const tex = device.createTexture({
+      size: [4, 4, 2],
+      format: 'rgba8unorm',
+      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
+      dimension: '2d',
+    });
+
+    const arrayView = tex.createView({
+      dimension: '2d-array',
+      baseArrayLayer: 0,
+      arrayLayerCount: 2,
+    });
+
+    const module = device.createShaderModule({ code: `
+      enable chromium_experimental_multiview;
+
+      @vertex
+      fn vs(@builtin(vertex_index) vi: u32) -> @builtin(position) vec4f {
+        var pos = array<vec2f, 3>(
+          vec2f(-1, -1), vec2f(3, -1), vec2f(-1, 3)
+        );
+        return vec4f(pos[vi], 0, 1);
+      }
+
+      @fragment
+      fn fs(@builtin(view_index) view: u32) -> @location(0) vec4f {
+        if (view == 0u) {å
+          return vec4f(1, 0, 0, 1);
+        } else {
+          return vec4f(0, 1, 0, 1);
+        }
+      }
+    `});
+
+    const pipeline = device.createRenderPipeline({
+      layout: 'auto',
+      vertex: { module, entryPoint: 'vs' },
+      fragment: { module, entryPoint: 'fs', targets: [{ format: 'rgba8unorm' }] },
+    });
+
+    const enc = device.createCommandEncoder();
+    const pass = enc.beginRenderPass({
+      colorAttachments: [{
+        view: arrayView,
+        loadOp: 'clear',
+        storeOp: 'store',
+        clearValue: [0, 0, 0, 1],
+      }],
+      viewCount: 2,
+    });
+    pass.setPipeline(pipeline);
+    pass.draw(3);
+    pass.end();
+    device.queue.submit([enc.finish()]);
+    log('Multiview render pass submitted');
+
+    const p0 = await readPixel(device, tex, 0);
+    log('Layer 0: R=' + p0[0] + ' G=' + p0[1] + ' B=' + p0[2] + ' A=' + p0[3]);
+    const p1 = await readPixel(device, tex, 1);
+    log('Layer 1: R=' + p1[0] + ' G=' + p1[1] + ' B=' + p1[2] + ' A=' + p1[3]);
+
+    if (p0[0] === 255 && p0[1] === 0 && p1[0] === 0 && p1[1] === 255) {
+      log('PASS: Multiview rendered correctly (layer 0=red, layer 1=green)');
+    } else if (p0[0] === 255 && p1[0] === 0 && p1[1] === 0) {
+      log('FAIL: Only layer 0 drawn - multiview broadcast not working');
+    } else {
+      log('FAIL: Unexpected pixel values');
+    }
+    tex.destroy();
+
+  } catch(e) {
+    log('ERROR: ' + e.message);
+    console.error(e);
+  }
+}
+
+async function readPixel(device, texture, layer) {
+  const buf = device.createBuffer({
+    size: 4,
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+  });
+  const enc = device.createCommandEncoder();
+  enc.copyTextureToBuffer(
+    { texture, origin: [0, 0, layer] },
+    { buffer: buf, bytesPerRow: 256 },
+    [1, 1, 1]
+  );
+  device.queue.submit([enc.finish()]);
+  await buf.mapAsync(GPUMapMode.READ);
+  const data = new Uint8Array(buf.getMappedRange()).slice();
+  buf.unmap();
+  buf.destroy();
+  return data;
+}
+
+run();
+</script>
+</body>
+</html>
