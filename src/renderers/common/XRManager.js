@@ -7,7 +7,7 @@ import { Vector2 } from '../../math/Vector2.js';
 import { Vector3 } from '../../math/Vector3.js';
 import { Vector4 } from '../../math/Vector4.js';
 import { WebXRController } from '../webxr/WebXRController.js';
-import { AddEquation, BackSide, CustomBlending, DepthFormat, DepthStencilFormat, FrontSide, RGBAFormat, UnsignedByteType, UnsignedInt248Type, UnsignedIntType, ZeroFactor, LinearFilter } from '../../constants.js';
+import { AddEquation, BackSide, CustomBlending, DepthFormat, DepthStencilFormat, FrontSide, HalfFloatType, RGBAFormat, UnsignedByteType, UnsignedInt248Type, UnsignedIntType, ZeroFactor, LinearFilter } from '../../constants.js';
 import { DepthTexture } from '../../textures/DepthTexture.js';
 import { XRRenderTarget } from './XRRenderTarget.js';
 import { CylinderGeometry } from '../../geometries/CylinderGeometry.js';
@@ -156,6 +156,24 @@ class XRManager extends EventDispatcher {
 		 * @default null
 		 */
 		this._xrRenderTarget = null;
+
+		/**
+		 * The motion vector and depth render target used by WebXR space warp.
+		 *
+		 * @private
+		 * @type {?XRRenderTarget}
+		 * @default null
+		 */
+		this._spaceWarpRenderTarget = null;
+
+		/**
+		 * Whether the current XR frame provides valid space-warp attachments.
+		 *
+		 * @private
+		 * @type {boolean}
+		 * @default false
+		 */
+		this._spaceWarpFrameReady = false;
 
 		/**
 		 * An array holding all the non-projection layers
@@ -758,9 +776,14 @@ class XRManager extends EventDispatcher {
 	async _initWebGPUSession( session ) {
 
 		const webgpuBinding = this.getWebGPUBinding();
-		const glProjLayer = webgpuBinding.createProjectionLayer( {
+		const useSpaceWarp = session.enabledFeatures.includes( 'space-warp' );
+		const projectionLayerInit = {
 			colorFormat: webgpuBinding.getPreferredColorFormat()
-		} );
+		};
+
+		if ( useSpaceWarp ) projectionLayerInit.depthStencilFormat = 'depth24plus';
+
+		const glProjLayer = webgpuBinding.createProjectionLayer( projectionLayerInit );
 
 		this._glProjLayer = glProjLayer;
 
@@ -783,6 +806,28 @@ class XRManager extends EventDispatcher {
 
 		this._xrRenderTarget.texture.isArrayTexture = true;
 
+		if ( useSpaceWarp ) {
+
+			const depthTexture = new DepthTexture( glProjLayer.textureWidth, glProjLayer.textureHeight, UnsignedIntType, undefined, undefined, undefined, undefined, undefined, undefined, DepthFormat, 2 );
+			depthTexture.isArrayTexture = true;
+
+			this._spaceWarpRenderTarget = new XRRenderTarget( glProjLayer.textureWidth, glProjLayer.textureHeight, {
+				depth: 2,
+				type: HalfFloatType,
+				format: RGBAFormat,
+				depthTexture,
+				depthBuffer: true,
+				useArrayDepthTexture: true,
+				samples: 0
+			} );
+
+			this._spaceWarpRenderTarget.texture.name = 'velocity';
+			this._spaceWarpRenderTarget.texture.isArrayTexture = true;
+			this._spaceWarpRenderTarget._hasExternalTextures = true;
+			depthTexture.renderTarget = this._spaceWarpRenderTarget;
+
+		}
+
 		if ( this._useMultiviewIfPossible === true ) {
 
 			warnOnce( 'THREE.XRManager: WebGPU XR does not support multiview yet. Disabling multiview for this XR session.' );
@@ -802,9 +847,9 @@ class XRManager extends EventDispatcher {
 
 		const renderer = this._renderer;
 		const backend = renderer.backend;
-		const xrRenderTarget = this._xrRenderTarget;
+		const renderTargets = [ this._xrRenderTarget, this._spaceWarpRenderTarget ];
 
-		if ( xrRenderTarget === null || backend.isWebGPUBackend !== true ) return;
+		if ( backend.isWebGPUBackend !== true ) return;
 
 		if ( renderer._renderContexts && renderer._renderContexts.dispose ) {
 
@@ -812,16 +857,22 @@ class XRManager extends EventDispatcher {
 
 		}
 
-		xrRenderTarget.dispose();
+		for ( const renderTarget of renderTargets ) {
 
-		// The external texture can be registered before the render target is initialized.
-		for ( const texture of xrRenderTarget.textures ) {
+			if ( renderTarget === null ) continue;
 
-			if ( backend.has( texture ) ) backend.destroyTexture( texture );
+			renderTarget.dispose();
+
+			// External textures can be registered before the render target is initialized.
+			for ( const texture of [ ...renderTarget.textures, renderTarget.depthTexture ] ) {
+
+				if ( texture && backend.has( texture ) ) backend.destroyTexture( texture );
+
+			}
+
+			backend.delete( renderTarget );
 
 		}
-
-		backend.delete( xrRenderTarget );
 
 	}
 
@@ -830,16 +881,20 @@ class XRManager extends EventDispatcher {
 	 *
 	 * @private
 	 * @param {Array<XRView>} views - The XR views for the current pose.
-	 * @return {{colorTexture:?GPUTexture, viewDescriptors:Array<Object>, viewports:Array<XRViewport>}} The WebGPU XR view data.
+	 * @return {{colorTexture:?GPUTexture, depthStencilTexture:?GPUTexture, motionVectorTexture:?GPUTexture, viewDescriptors:Array<Object>, viewports:Array<XRViewport>}} The WebGPU XR view data.
 	 */
 	_getWebGPUViewData( views ) {
 
 		const webgpuBinding = this.getWebGPUBinding();
 		const viewData = {
 			colorTexture: null,
+			depthStencilTexture: null,
+			motionVectorTexture: null,
 			viewDescriptors: [],
 			viewports: []
 		};
+
+		this._spaceWarpFrameReady = false;
 
 		for ( let i = 0; i < views.length; i ++ ) {
 
@@ -848,6 +903,8 @@ class XRManager extends EventDispatcher {
 			if ( viewData.colorTexture === null ) {
 
 				viewData.colorTexture = gpuSubImage.colorTexture;
+				viewData.depthStencilTexture = gpuSubImage.depthStencilTexture || null;
+				viewData.motionVectorTexture = gpuSubImage.motionVectorTexture || null;
 
 			}
 
@@ -873,6 +930,28 @@ class XRManager extends EventDispatcher {
 	getFrame() {
 
 		return this._xrFrame;
+
+	}
+
+	/**
+	 * Returns whether the active WebGPU XR session has space warp enabled.
+	 *
+	 * @return {boolean} Whether space warp is enabled.
+	 */
+	isSpaceWarpEnabled() {
+
+		return this._spaceWarpRenderTarget !== null;
+
+	}
+
+	/**
+	 * Returns the compositor-backed motion vector and depth render target for the current frame.
+	 *
+	 * @return {?XRRenderTarget} The space-warp render target, or `null` when it is unavailable.
+	 */
+	getSpaceWarpRenderTarget() {
+
+		return this._spaceWarpFrameReady ? this._spaceWarpRenderTarget : null;
 
 	}
 
@@ -1665,6 +1744,8 @@ function onSessionEnd() {
 
 	this._session = null;
 	this._xrRenderTarget = null;
+	this._spaceWarpRenderTarget = null;
+	this._spaceWarpFrameReady = false;
 	this._glBinding = null;
 	this._webgpuBinding = null;
 	this._glBaseLayer = null;
@@ -1861,6 +1942,7 @@ function onAnimationFrame( time, frame ) {
 	const pose = frame.getViewerPose( referenceSpace );
 
 	this._xrFrame = frame;
+	this._spaceWarpFrameReady = false;
 
 	if ( pose !== null ) {
 
@@ -1958,6 +2040,33 @@ function onAnimationFrame( time, frame ) {
 				webgpuViewData.colorTexture,
 				webgpuViewData.viewDescriptors
 			);
+
+		}
+
+		if ( webgpuViewData !== null && this._spaceWarpRenderTarget !== null &&
+			webgpuViewData.motionVectorTexture !== null && webgpuViewData.depthStencilTexture !== null ) {
+
+			const motionVectorTexture = webgpuViewData.motionVectorTexture;
+			const depthStencilTexture = webgpuViewData.depthStencilTexture;
+			const spaceWarpRenderTarget = this._spaceWarpRenderTarget;
+
+			if ( motionVectorTexture.width === depthStencilTexture.width && motionVectorTexture.height === depthStencilTexture.height ) {
+
+				spaceWarpRenderTarget.setSize( motionVectorTexture.width, motionVectorTexture.height, motionVectorTexture.depthOrArrayLayers );
+				spaceWarpRenderTarget.depthTexture.image.width = depthStencilTexture.width;
+				spaceWarpRenderTarget.depthTexture.image.height = depthStencilTexture.height;
+				spaceWarpRenderTarget.depthTexture.image.depth = depthStencilTexture.depthOrArrayLayers;
+
+				backend.setXRRenderTargetTextures(
+					spaceWarpRenderTarget,
+					motionVectorTexture,
+					webgpuViewData.viewDescriptors,
+					depthStencilTexture
+				);
+
+				this._spaceWarpFrameReady = true;
+
+			}
 
 		}
 

@@ -79,7 +79,7 @@
 				document.body.appendChild( renderer.domElement );
 
 				await renderer.init();
-				renderPipeline = new THREE.DirectRenderPipeline( renderer );
+				renderPipeline = new THREE.XRSpaceWarpRenderPipeline( renderer );
 
 				controls = new OrbitControls( camera, renderer.domElement );
 				controls.enableDamping = true;
@@ -120,7 +120,7 @@
 					data.rotations = null;
 					data.colors = null;
 
-					document.body.appendChild( ARButton.createButton( renderer, { optionalFeatures: [ 'webgpu' ] } ) );
+					document.body.appendChild( ARButton.createButton( renderer, { optionalFeatures: [ 'webgpu', 'space-warp' ] } ) );
 
 					const gui = renderer.inspector.createParameters( 'Settings' );
 					gui.add( splats, 'splatScale', 0.5, 4, 0.01 ).name( 'splat scale' );

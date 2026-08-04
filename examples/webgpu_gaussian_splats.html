@@ -44,7 +44,7 @@
 
 			const SPLAT_COUNT = 8192;
 
-			let camera, cameraRig, scene, renderer, controls, splats;
+			let camera, cameraRig, scene, renderer, renderPipeline, controls, splats;
 			let desktopCameraState;
 
 			init();
@@ -71,9 +71,10 @@
 				renderer.xr.enabled = true;
 				renderer.inspector = new Inspector();
 				document.body.appendChild( renderer.domElement );
-				document.body.appendChild( VRButton.createButton( renderer, { optionalFeatures: [ 'webgpu' ] } ) );
+				document.body.appendChild( VRButton.createButton( renderer, { optionalFeatures: [ 'webgpu', 'space-warp' ] } ) );
 
 				await renderer.init();
+				renderPipeline = new THREE.XRSpaceWarpRenderPipeline( renderer );
 
 				splats = new GaussianSplatMesh( renderer, createSplatData( SPLAT_COUNT ) );
 				splats.rotation.x = - 0.15;
@@ -220,7 +221,15 @@
 
 				}
 
-				renderer.render( scene, camera );
+				if ( renderer.xr.isPresenting === true ) {
+
+					renderPipeline.render( scene, camera );
+
+				} else {
+
+					renderer.render( scene, camera );
+
+				}
 
 			}
 

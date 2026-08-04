@@ -307,8 +307,9 @@ class WebGPUBackend extends Backend {
 	 * @param {RenderTarget} renderTarget - The render target to register the textures for.
 	 * @param {GPUTexture} colorTexture - The shared XR color GPUTexture.
 	 * @param {?Array<Object>} [viewDescriptors=null] - Optional view descriptors, one per XR view.
+	 * @param {?GPUTexture} [depthTexture=null] - The shared XR depth GPUTexture.
 	 */
-	setXRRenderTargetTextures( renderTarget, colorTexture, viewDescriptors = null ) {
+	setXRRenderTargetTextures( renderTarget, colorTexture, viewDescriptors = null, depthTexture = null ) {
 
 		// Update the external XR texture without replacing the cached MSAA attachments.
 		const textureData = this.get( renderTarget.texture );
@@ -318,6 +319,19 @@ class WebGPUBackend extends Backend {
 		textureData.externalTexture = true;
 		textureData.xrViewDescriptors = viewDescriptors;
 		textureData.initialized = true;
+
+		if ( depthTexture !== null && renderTarget.depthTexture !== null ) {
+
+			const depthTextureData = this.get( renderTarget.depthTexture );
+
+			depthTextureData.texture = depthTexture;
+			depthTextureData.format = depthTexture.format;
+			depthTextureData.externalTexture = true;
+			depthTextureData.xrViewDescriptors = viewDescriptors;
+			depthTextureData.viewCache = [];
+			depthTextureData.initialized = true;
+
+		}
 
 	}
 
@@ -1344,6 +1358,13 @@ class WebGPUBackend extends Backend {
 			if ( layerDescriptor.depthStencilAttachment ) {
 
 				const depthAttachment = layerDescriptor.depthStencilAttachment;
+				const depthTextureData = this.get( renderContext.depthTexture );
+
+				if ( depthTextureData.externalTexture === true ) {
+
+					depthAttachment.view = depthTextureData.texture.createView( depthTextureData.xrViewDescriptors?.[ i ] );
+
+				}
 
 				if ( renderContext.depth ) {
 

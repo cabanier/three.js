@@ -6,8 +6,9 @@ import { NodeUpdateType } from '../core/constants.js';
 import { Matrix4 } from '../../math/Matrix4.js';
 import { uniform } from '../core/UniformNode.js';
 import { sub } from '../math/OperatorNode.js';
-import { cameraProjectionMatrix } from './Camera.js';
+import { cameraIndex, cameraProjectionMatrix } from './Camera.js';
 import { renderGroup } from '../core/UniformGroupNode.js';
+import { uniformArray } from './UniformArrayNode.js';
 
 const _objectData = new WeakMap();
 
@@ -84,6 +85,27 @@ class VelocityNode extends TempNode {
 		 */
 		this.previousCameraViewMatrix = uniform( new Matrix4() );
 
+		/**
+		 * Previous projection matrices used when rendering with an array camera.
+		 *
+		 * @private
+		 * @type {?Array<Matrix4>}
+		 * @default null
+		 */
+		this._previousProjectionMatrices = null;
+
+		/**
+		 * Previous view matrices used when rendering with an array camera.
+		 *
+		 * @private
+		 * @type {?Array<Matrix4>}
+		 * @default null
+		 */
+		this._previousCameraViewMatrices = null;
+
+		this._previousProjectionMatrixArray = null;
+		this._previousCameraViewMatrixArray = null;
+
 	}
 
 	/**
@@ -110,35 +132,51 @@ class VelocityNode extends TempNode {
 
 		//
 
-		const cameraData = getData( camera );
+		const cameras = camera.isArrayCamera === true ? camera.cameras : [ camera ];
 
-		if ( cameraData.frameId !== frameId ) {
+		for ( let i = 0; i < cameras.length; i ++ ) {
 
-			cameraData.frameId = frameId;
+			const currentCamera = cameras[ i ];
+			const cameraData = getData( currentCamera );
 
-			if ( cameraData.previousProjectionMatrix === undefined ) {
+			if ( cameraData.frameId !== frameId ) {
 
-				cameraData.previousProjectionMatrix = new Matrix4();
-				cameraData.previousCameraViewMatrix = new Matrix4();
+				cameraData.frameId = frameId;
 
-				cameraData.currentProjectionMatrix = new Matrix4();
-				cameraData.currentCameraViewMatrix = new Matrix4();
+				if ( cameraData.previousProjectionMatrix === undefined ) {
 
-				cameraData.previousProjectionMatrix.copy( this.projectionMatrix || camera.projectionMatrix );
-				cameraData.previousCameraViewMatrix.copy( camera.matrixWorldInverse );
+					cameraData.previousProjectionMatrix = new Matrix4();
+					cameraData.previousCameraViewMatrix = new Matrix4();
 
-			} else {
+					cameraData.currentProjectionMatrix = new Matrix4();
+					cameraData.currentCameraViewMatrix = new Matrix4();
 
-				cameraData.previousProjectionMatrix.copy( cameraData.currentProjectionMatrix );
-				cameraData.previousCameraViewMatrix.copy( cameraData.currentCameraViewMatrix );
+					cameraData.previousProjectionMatrix.copy( this.projectionMatrix || currentCamera.projectionMatrix );
+					cameraData.previousCameraViewMatrix.copy( currentCamera.matrixWorldInverse );
+
+				} else {
+
+					cameraData.previousProjectionMatrix.copy( cameraData.currentProjectionMatrix );
+					cameraData.previousCameraViewMatrix.copy( cameraData.currentCameraViewMatrix );
+
+				}
+
+				cameraData.currentProjectionMatrix.copy( this.projectionMatrix || currentCamera.projectionMatrix );
+				cameraData.currentCameraViewMatrix.copy( currentCamera.matrixWorldInverse );
 
 			}
 
-			cameraData.currentProjectionMatrix.copy( this.projectionMatrix || camera.projectionMatrix );
-			cameraData.currentCameraViewMatrix.copy( camera.matrixWorldInverse );
+			if ( camera.isArrayCamera === true ) {
 
-			this.previousProjectionMatrix.value.copy( cameraData.previousProjectionMatrix );
-			this.previousCameraViewMatrix.value.copy( cameraData.previousCameraViewMatrix );
+				this._previousProjectionMatrices[ i ].copy( cameraData.previousProjectionMatrix );
+				this._previousCameraViewMatrices[ i ].copy( cameraData.previousCameraViewMatrix );
+
+			} else {
+
+				this.previousProjectionMatrix.value.copy( cameraData.previousProjectionMatrix );
+				this.previousCameraViewMatrix.value.copy( cameraData.previousCameraViewMatrix );
+
+			}
 
 		}
 
@@ -161,14 +199,34 @@ class VelocityNode extends TempNode {
 	 * @param {NodeBuilder} builder - A reference to the current node builder.
 	 * @return {Node<vec2>} The motion vector.
 	 */
-	setup( /*builder*/ ) {
+	setup( builder ) {
 
 		const projectionMatrix = ( this.projectionMatrix === null ) ? cameraProjectionMatrix : uniform( this.projectionMatrix );
+		let previousProjectionMatrix = this.previousProjectionMatrix;
+		let previousCameraViewMatrix = this.previousCameraViewMatrix;
 
-		const previousModelViewMatrix = this.previousCameraViewMatrix.mul( this.previousModelWorldMatrix );
+		if ( builder.camera.isArrayCamera === true ) {
+
+			if ( this._previousProjectionMatrixArray === null ) {
+
+				const cameraCount = builder.camera.cameras.length;
+
+				this._previousProjectionMatrices = Array.from( { length: cameraCount }, () => new Matrix4() );
+				this._previousCameraViewMatrices = Array.from( { length: cameraCount }, () => new Matrix4() );
+				this._previousProjectionMatrixArray = uniformArray( this._previousProjectionMatrices ).setGroup( renderGroup );
+				this._previousCameraViewMatrixArray = uniformArray( this._previousCameraViewMatrices ).setGroup( renderGroup );
+
+			}
+
+			previousProjectionMatrix = this._previousProjectionMatrixArray.element( cameraIndex );
+			previousCameraViewMatrix = this._previousCameraViewMatrixArray.element( cameraIndex );
+
+		}
+
+		const previousModelViewMatrix = previousCameraViewMatrix.mul( this.previousModelWorldMatrix );
 
 		const clipPositionCurrent = projectionMatrix.mul( modelViewMatrix ).mul( positionLocal );
-		const clipPositionPrevious = this.previousProjectionMatrix.mul( previousModelViewMatrix ).mul( positionPrevious );
+		const clipPositionPrevious = previousProjectionMatrix.mul( previousModelViewMatrix ).mul( positionPrevious );
 
 		const ndcPositionCurrent = clipPositionCurrent.xy.div( clipPositionCurrent.w );
 		const ndcPositionPrevious = clipPositionPrevious.xy.div( clipPositionPrevious.w );

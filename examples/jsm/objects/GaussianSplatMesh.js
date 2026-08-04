@@ -6,6 +6,7 @@ import {
 	Mesh,
 	NodeMaterial,
 	StorageBufferAttribute,
+	TempNode,
 	Vector3
 } from 'three/webgpu';
 import {
@@ -13,19 +14,24 @@ import {
 	Fn,
 	If,
 	Loop,
+	NodeUpdateType,
 	atomicAdd,
 	atomicLoad,
 	atomicStore,
 	attribute,
+	cameraIndex,
 	cameraProjectionMatrix,
 	cameraViewMatrix,
 	instanceIndex,
 	modelWorldMatrix,
+	mrt,
+	renderGroup,
 	screenSize,
 	storage,
 	struct,
 	uint,
 	uniform,
+	uniformArray,
 	varyingProperty,
 	vec2,
 	vec3,
@@ -36,6 +42,8 @@ const _modelViewMatrix = /*@__PURE__*/ new Matrix4();
 const _cameraPosition = /*@__PURE__*/ new Vector3();
 const _cameraDirection = /*@__PURE__*/ new Vector3();
 const _viewCenter = /*@__PURE__*/ new Vector3();
+const _previousModelMatrices = /*@__PURE__*/ new WeakMap();
+const _previousCameraData = /*@__PURE__*/ new WeakMap();
 
 const BIN_COUNT = 4096;
 const WORKGROUP_SIZE = 256;
@@ -148,6 +156,116 @@ function getSplatBudget( value, count ) {
 
 }
 
+function getPreviousModelMatrix( object ) {
+
+	let matrix = _previousModelMatrices.get( object );
+
+	if ( matrix === undefined ) {
+
+		matrix = new Matrix4().copy( object.matrixWorld );
+		_previousModelMatrices.set( object, matrix );
+
+	}
+
+	return matrix;
+
+}
+
+function getCameraData( camera ) {
+
+	let cameraData = _previousCameraData.get( camera );
+
+	if ( cameraData === undefined ) {
+
+		cameraData = {
+			previousProjectionMatrix: new Matrix4(),
+			previousViewMatrix: new Matrix4(),
+			currentProjectionMatrix: new Matrix4(),
+			currentViewMatrix: new Matrix4()
+		};
+		_previousCameraData.set( camera, cameraData );
+
+	}
+
+	return cameraData;
+
+}
+
+class GaussianSplatVelocityNode extends TempNode {
+
+	constructor( currentClipPosition, previousClipPosition ) {
+
+		super( 'vec2' );
+
+		this.currentClipPosition = currentClipPosition;
+		this.previousClipPosition = previousClipPosition;
+		this.previousModelWorldMatrix = uniform( new Matrix4() );
+		this.previousProjectionMatrices = [ new Matrix4(), new Matrix4() ];
+		this.previousCameraViewMatrices = [ new Matrix4(), new Matrix4() ];
+		this.previousProjectionMatrix = uniformArray( this.previousProjectionMatrices ).setGroup( renderGroup ).element( cameraIndex );
+		this.previousCameraViewMatrix = uniformArray( this.previousCameraViewMatrices ).setGroup( renderGroup ).element( cameraIndex );
+		this.updateType = NodeUpdateType.OBJECT;
+		this.updateAfterType = NodeUpdateType.OBJECT;
+
+	}
+
+	update( { frameId, camera, object } ) {
+
+		this.previousModelWorldMatrix.value.copy( getPreviousModelMatrix( object ) );
+
+		const cameras = camera.isArrayCamera === true ? camera.cameras : [ camera ];
+
+		for ( let i = 0; i < cameras.length; i ++ ) {
+
+			const currentCamera = cameras[ i ];
+			const cameraData = getCameraData( currentCamera );
+
+			if ( cameraData.frameId !== frameId ) {
+
+				cameraData.frameId = frameId;
+
+				if ( cameraData.initialized !== true ) {
+
+					cameraData.previousProjectionMatrix.copy( currentCamera.projectionMatrix );
+					cameraData.previousViewMatrix.copy( currentCamera.matrixWorldInverse );
+					cameraData.initialized = true;
+
+				} else {
+
+					cameraData.previousProjectionMatrix.copy( cameraData.currentProjectionMatrix );
+					cameraData.previousViewMatrix.copy( cameraData.currentViewMatrix );
+
+				}
+
+				cameraData.currentProjectionMatrix.copy( currentCamera.projectionMatrix );
+				cameraData.currentViewMatrix.copy( currentCamera.matrixWorldInverse );
+
+			}
+
+			this.previousProjectionMatrices[ i ].copy( cameraData.previousProjectionMatrix );
+			this.previousCameraViewMatrices[ i ].copy( cameraData.previousViewMatrix );
+
+		}
+
+	}
+
+	updateAfter( { object } ) {
+
+		getPreviousModelMatrix( object ).copy( object.matrixWorld );
+
+	}
+
+	setup() {
+
+		const currentNDC = this.currentClipPosition.xy.div( this.currentClipPosition.w );
+		const previousNDC = this.previousClipPosition.xy.div( this.previousClipPosition.w );
+
+		return currentNDC.sub( previousNDC );
+
+	}
+
+}
+
 /**
  * A WebGPU implementation of 3D Gaussian splatting.
  *
@@ -239,14 +357,11 @@ class GaussianSplatMesh extends Mesh {
 		const opacityNode = uniform( 1 ).setName( 'GaussianSplatOpacity' );
 		const gaussianCoord = varyingProperty( 'vec2', 'vGaussianCoord' );
 		const splatColor = varyingProperty( 'vec4', 'vGaussianColor' );
+		const currentClipPosition = varyingProperty( 'vec4', 'vGaussianCurrentClipPosition' );
+		const previousClipPosition = varyingProperty( 'vec4', 'vGaussianPreviousClipPosition' );
+		const velocityNode = new GaussianSplatVelocityNode( currentClipPosition, previousClipPosition );
 
-		const material = new NodeMaterial();
-		material.transparent = true;
-		material.depthWrite = false;
-		material.fog = false;
-		material.lights = false;
-
-		material.vertexNode = Fn( () => {
+		const getVertexNode = ( writeVelocity ) => Fn( () => {
 
 			const splatIndex = orderRead.element( instanceIndex );
 			const center = positionRead.element( splatIndex ).xyz;
@@ -274,70 +389,88 @@ class GaussianSplatMesh extends Mesh {
 				x.mul( x ).add( y.mul( y ) ).mul( - 2 ).add( 1 )
 			).mul( scale.z );
 
-			const centerWorld = modelWorldMatrix.mul( vec4( center, 1 ) );
-			const centerView = cameraViewMatrix.mul( centerWorld );
-			const centerClip = cameraProjectionMatrix.mul( centerView ).toVar();
-
-			const axisViewX = cameraViewMatrix.mul( modelWorldMatrix.mul( vec4( axisX, 0 ) ) ).xyz;
-			const axisViewY = cameraViewMatrix.mul( modelWorldMatrix.mul( vec4( axisY, 0 ) ) ).xyz;
-			const axisViewZ = cameraViewMatrix.mul( modelWorldMatrix.mul( vec4( axisZ, 0 ) ) ).xyz;
-			const inverseDepth = centerView.z.negate().reciprocal();
-			const inverseDepthSquared = inverseDepth.mul( inverseDepth );
-			const focalX = cameraProjectionMatrix.element( 0 ).element( 0 );
-			const focalY = cameraProjectionMatrix.element( 1 ).element( 1 );
-
-			const projectAxis = ( axis ) => vec2(
-				axis.x.mul( inverseDepth ).add( centerView.x.mul( axis.z ).mul( inverseDepthSquared ) ).mul( focalX ),
-				axis.y.mul( inverseDepth ).add( centerView.y.mul( axis.z ).mul( inverseDepthSquared ) ).mul( focalY )
-			).mul( screenSize ).mul( 0.5 );
-
-			const projectedX = projectAxis( axisViewX );
-			const projectedY = projectAxis( axisViewY );
-			const projectedZ = projectAxis( axisViewZ );
-			const covarianceBaseX = projectedX.x.pow2().add( projectedY.x.pow2() ).add( projectedZ.x.pow2() );
-			const covarianceY = projectedX.x.mul( projectedX.y ).add( projectedY.x.mul( projectedY.y ) ).add( projectedZ.x.mul( projectedZ.y ) );
-			const covarianceBaseZ = projectedX.y.pow2().add( projectedY.y.pow2() ).add( projectedZ.y.pow2() );
-			const covarianceX = covarianceBaseX.add( KERNEL_2D_SIZE );
-			const covarianceZ = covarianceBaseZ.add( KERNEL_2D_SIZE );
-			const determinantBase = covarianceBaseX.mul( covarianceBaseZ ).sub( covarianceY.pow2() );
-			const determinant = covarianceX.mul( covarianceZ ).sub( covarianceY.pow2() );
-			const alphaScale = determinantBase.div( determinant.max( 1e-6 ) ).max( 0 ).sqrt();
-
-			const trace = covarianceX.add( covarianceZ ).mul( 0.5 );
-			const radius = covarianceX.sub( covarianceZ ).mul( 0.5 ).pow2().add( covarianceY.pow2() ).sqrt();
-			const eigenvalue1 = trace.add( radius ).max( 1e-6 );
-			const eigenvalue2 = trace.sub( radius ).max( 1e-6 );
-			const eigenvector = vec2( 1, 0 ).toVar();
-
-			If( covarianceY.abs().greaterThan( 1e-6 ), () => {
-
-				eigenvector.assign( vec2( covarianceY, eigenvalue1.sub( covarianceX ) ).normalize() );
-
-			} ).ElseIf( covarianceZ.greaterThan( covarianceX ), () => {
-
-				eigenvector.assign( vec2( 0, 1 ) );
-
-			} );
-
-			const perpendicular = vec2( eigenvector.y.negate(), eigenvector.x );
 			const corner = attribute( 'position' ).xy;
-			const scale1 = eigenvalue1.sqrt().mul( SPLAT_RADIUS ).min( MAX_SCREEN_SPACE_SPLAT_SIZE );
-			const scale2 = eigenvalue2.sqrt().mul( SPLAT_RADIUS ).min( MAX_SCREEN_SPACE_SPLAT_SIZE );
-			const offset = eigenvector.mul( scale1 ).mul( corner.x )
-				.add( perpendicular.mul( scale2 ).mul( corner.y ) );
 
-			centerClip.xy.addAssign( offset.mul( 2 ).div( screenSize ).mul( centerClip.w ) );
+			const projectSplat = ( modelMatrix, viewMatrix, projectionMatrix ) => {
+
+				const centerWorld = modelMatrix.mul( vec4( center, 1 ) );
+				const centerView = viewMatrix.mul( centerWorld );
+				const centerClip = projectionMatrix.mul( centerView ).toVar();
+				const axisViewX = viewMatrix.mul( modelMatrix.mul( vec4( axisX, 0 ) ) ).xyz;
+				const axisViewY = viewMatrix.mul( modelMatrix.mul( vec4( axisY, 0 ) ) ).xyz;
+				const axisViewZ = viewMatrix.mul( modelMatrix.mul( vec4( axisZ, 0 ) ) ).xyz;
+				const inverseDepth = centerView.z.negate().reciprocal();
+				const inverseDepthSquared = inverseDepth.mul( inverseDepth );
+				const focalX = projectionMatrix.element( 0 ).element( 0 );
+				const focalY = projectionMatrix.element( 1 ).element( 1 );
+				const projectAxis = ( axis ) => vec2(
+					axis.x.mul( inverseDepth ).add( centerView.x.mul( axis.z ).mul( inverseDepthSquared ) ).mul( focalX ),
+					axis.y.mul( inverseDepth ).add( centerView.y.mul( axis.z ).mul( inverseDepthSquared ) ).mul( focalY )
+				).mul( screenSize ).mul( 0.5 );
+				const projectedX = projectAxis( axisViewX );
+				const projectedY = projectAxis( axisViewY );
+				const projectedZ = projectAxis( axisViewZ );
+				const covarianceBaseX = projectedX.x.pow2().add( projectedY.x.pow2() ).add( projectedZ.x.pow2() );
+				const covarianceY = projectedX.x.mul( projectedX.y ).add( projectedY.x.mul( projectedY.y ) ).add( projectedZ.x.mul( projectedZ.y ) );
+				const covarianceBaseZ = projectedX.y.pow2().add( projectedY.y.pow2() ).add( projectedZ.y.pow2() );
+				const covarianceX = covarianceBaseX.add( KERNEL_2D_SIZE );
+				const covarianceZ = covarianceBaseZ.add( KERNEL_2D_SIZE );
+				const determinantBase = covarianceBaseX.mul( covarianceBaseZ ).sub( covarianceY.pow2() );
+				const determinant = covarianceX.mul( covarianceZ ).sub( covarianceY.pow2() );
+				const alphaScale = determinantBase.div( determinant.max( 1e-6 ) ).max( 0 ).sqrt();
+				const trace = covarianceX.add( covarianceZ ).mul( 0.5 );
+				const radius = covarianceX.sub( covarianceZ ).mul( 0.5 ).pow2().add( covarianceY.pow2() ).sqrt();
+				const eigenvalue1 = trace.add( radius ).max( 1e-6 );
+				const eigenvalue2 = trace.sub( radius ).max( 1e-6 );
+				const eigenvector = vec2( 1, 0 ).toVar();
+
+				If( covarianceY.abs().greaterThan( 1e-6 ), () => {
+
+					eigenvector.assign( vec2( covarianceY, eigenvalue1.sub( covarianceX ) ).normalize() );
+
+				} ).ElseIf( covarianceZ.greaterThan( covarianceX ), () => {
+
+					eigenvector.assign( vec2( 0, 1 ) );
+
+				} );
+
+				const perpendicular = vec2( eigenvector.y.negate(), eigenvector.x );
+				const scale1 = eigenvalue1.sqrt().mul( SPLAT_RADIUS ).min( MAX_SCREEN_SPACE_SPLAT_SIZE );
+				const scale2 = eigenvalue2.sqrt().mul( SPLAT_RADIUS ).min( MAX_SCREEN_SPACE_SPLAT_SIZE );
+				const offset = eigenvector.mul( scale1 ).mul( corner.x )
+					.add( perpendicular.mul( scale2 ).mul( corner.y ) );
+
+				centerClip.xy.addAssign( offset.mul( 2 ).div( screenSize ).mul( centerClip.w ) );
+
+				return { clipPosition: centerClip, alphaScale };
+
+			};
+
+			const currentProjection = projectSplat( modelWorldMatrix, cameraViewMatrix, cameraProjectionMatrix );
+
+			if ( writeVelocity ) {
+
+				const previousProjection = projectSplat(
+					velocityNode.previousModelWorldMatrix,
+					velocityNode.previousCameraViewMatrix,
+					velocityNode.previousProjectionMatrix
+				);
+
+				currentClipPosition.assign( currentProjection.clipPosition );
+				previousClipPosition.assign( previousProjection.clipPosition );
+
+			}
+
 			gaussianCoord.assign( corner.mul( SPLAT_RADIUS ) );
 
 			const color = colorRead.element( splatIndex );
-			splatColor.assign( vec4( color.rgb, color.a.mul( alphaScale ) ) );
+			splatColor.assign( vec4( color.rgb, color.a.mul( currentProjection.alphaScale ) ) );
 
-			return centerClip;
+			return currentProjection.clipPosition;
 
 		} )();
 
-		material.colorNode = splatColor.rgb;
-		material.opacityNode = Fn( () => {
+		const splatOpacityNode = Fn( () => {
 
 			const radiusSquared = gaussianCoord.dot( gaussianCoord );
 
@@ -358,6 +491,25 @@ class GaussianSplatMesh extends Mesh {
 			return alpha;
 
 		} )();
+
+		const material = new NodeMaterial();
+		material.transparent = true;
+		material.depthWrite = false;
+		material.fog = false;
+		material.lights = false;
+		material.vertexNode = getVertexNode( false );
+		material.colorNode = splatColor.rgb;
+		material.opacityNode = splatOpacityNode;
+
+		const spaceWarpMaterial = new NodeMaterial();
+		spaceWarpMaterial.transparent = true;
+		spaceWarpMaterial.depthWrite = true;
+		spaceWarpMaterial.fog = false;
+		spaceWarpMaterial.lights = false;
+		spaceWarpMaterial.vertexNode = getVertexNode( true );
+		spaceWarpMaterial.colorNode = splatColor.rgb;
+		spaceWarpMaterial.opacityNode = splatOpacityNode;
+		spaceWarpMaterial.mrtNode = mrt( { velocity: velocityNode } );
 
 		super( geometry, material );
 
@@ -381,6 +533,8 @@ class GaussianSplatMesh extends Mesh {
 		this._needsUpdate = true;
 		this._hasComputed = false;
 		this._storageAttributes = options.releaseCPUData === true ? storageAttributes : null;
+		this._spaceWarpMaterial = spaceWarpMaterial;
+		this._spaceWarpColorMaterial = null;
 
 		const computeModelViewNode = uniform( this._modelViewMatrix ).setName( 'GaussianSplatModelViewMatrix' );
 		const computeProjectionNode = uniform( this._projectionMatrix ).setName( 'GaussianSplatProjectionMatrix' );
@@ -660,6 +814,34 @@ class GaussianSplatMesh extends Mesh {
 	}
 
 	/**
+	 * Switches to the material that writes splat motion vectors and depth.
+	 *
+	 * @private
+	 */
+	onBeforeXRSpaceWarpRender() {
+
+		if ( this._spaceWarpColorMaterial !== null ) return;
+
+		this._spaceWarpColorMaterial = this.material;
+		this.material = this._spaceWarpMaterial;
+
+	}
+
+	/**
+	 * Restores the color material after the space-warp pass.
+	 *
+	 * @private
+	 */
+	onAfterXRSpaceWarpRender() {
+
+		if ( this._spaceWarpColorMaterial === null ) return;
+
+		this.material = this._spaceWarpColorMaterial;
+		this._spaceWarpColorMaterial = null;
+
+	}
+
+	/**
 	 * Frees the geometry and material resources owned by this mesh.
 	 */
 	dispose() {
@@ -668,6 +850,7 @@ class GaussianSplatMesh extends Mesh {
 
 		this.geometry.dispose();
 		this.material.dispose();
+		this._spaceWarpMaterial.dispose();
 
 	}
 
