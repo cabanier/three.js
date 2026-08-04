@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgpu - gaussian splat loader</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<meta property="og:title" content="three.js webgpu - gaussian splat loader">
+		<meta property="og:type" content="website">
+		<meta property="og:url" content="https://threejs.org/examples/webgpu_loader_gaussian_splat.html">
+		<meta property="og:image" content="https://threejs.org/examples/screenshots/webgpu_loader_gaussian_splat.jpg">
+		<link type="text/css" rel="stylesheet" href="example.css">
+	</head>
+	<body>
+
+		<div id="info">
+			<a href="https://threejs.org/" target="_blank" rel="noopener" class="logo-link"></a>
+
+			<div class="title-wrapper">
+				<a href="https://threejs.org/" target="_blank" rel="noopener">three.js</a><span>Gaussian Splat Loader</span>
+			</div>
+
+			<small>
+				<a href="https://github.com/nianticlabs/spz" target="_blank" rel="noopener">SPZ compressed Gaussian splat</a>
+			</small>
+		</div>
+
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "../build/three.webgpu.js",
+					"three/webgpu": "../build/three.webgpu.js",
+					"three/tsl": "../build/three.tsl.js",
+					"three/addons/": "./jsm/"
+				}
+			}
+		</script>
+
+		<script type="module">
+
+			import * as THREE from 'three/webgpu';
+
+			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+			import { GaussianSplatLoader } from 'three/addons/loaders/GaussianSplatLoader.js';
+			import { GaussianSplatMesh } from 'three/addons/objects/GaussianSplatMesh.js';
+			import { Inspector } from 'three/addons/inspector/Inspector.js';
+			import { ARButton } from 'three/addons/webxr/ARButton.js';
+
+			let camera, cameraRig, scene, renderer, renderPipeline, controls, splats;
+			let desktopCameraState;
+			const XR_SPLAT_COUNT = 131072;
+			const SPLAT_ROTATION_SPEED = 0.1;
+			const background = new THREE.Color( 0x201f1d );
+			const arRigPosition = new THREE.Vector3();
+
+			init();
+
+			async function init() {
+
+				camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.01, 100 );
+
+				scene = new THREE.Scene();
+				scene.background = background;
+
+				cameraRig = new THREE.Group();
+				cameraRig.add( camera );
+				scene.add( cameraRig );
+
+				renderer = new THREE.WebGPURenderer( {
+					antialias: true,
+					alpha: true,
+					outputBufferType: THREE.UnsignedByteType,
+					multiview: false
+				} );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.setClearColor( 0x000000, 0 );
+				renderer.xr.enabled = true;
+				renderer.inspector = new Inspector();
+				document.body.appendChild( renderer.domElement );
+
+				await renderer.init();
+				renderPipeline = new THREE.DirectRenderPipeline( renderer );
+
+				controls = new OrbitControls( camera, renderer.domElement );
+				controls.enableDamping = true;
+
+				const loader = new GaussianSplatLoader();
+				loader.load( 'splats/woobles.spz', function ( data ) {
+
+					splats = new GaussianSplatMesh( renderer, data, {
+						xrSplatCount: XR_SPLAT_COUNT,
+						releaseCPUData: true
+					} );
+					splats.rotation.x = Math.PI;
+					scene.add( splats );
+					setSplatPremultipliedAlpha( renderer.xr.isPresenting );
+
+					const bounds = new THREE.Box3().setFromArray( data.positions );
+					const sphere = bounds.getBoundingSphere( new THREE.Sphere() );
+					const center = splats.localToWorld( sphere.center.clone() );
+					const distance = sphere.radius / Math.sin( THREE.MathUtils.degToRad( camera.fov * 0.5 ) ) * 1.15;
+
+					camera.position.copy( center ).add( new THREE.Vector3( 0, sphere.radius * 0.25, distance ) );
+					camera.near = Math.max( distance / 1000, 0.01 );
+					camera.far = distance + sphere.radius * 4;
+					camera.updateProjectionMatrix();
+					arRigPosition.set( center.x, center.y + sphere.radius * 0.25, center.z + distance );
+
+					controls.target.copy( center );
+					controls.minDistance = sphere.radius * 0.2;
+					controls.maxDistance = sphere.radius * 8;
+					controls.update();
+
+					// Upload storage data before WebXR allocates its per-eye render targets.
+					splats.update( camera, true );
+					renderer.render( scene, camera );
+
+					data.positions = null;
+					data.scales = null;
+					data.rotations = null;
+					data.colors = null;
+
+					document.body.appendChild( ARButton.createButton( renderer, { optionalFeatures: [ 'webgpu' ] } ) );
+
+					const gui = renderer.inspector.createParameters( 'Settings' );
+					gui.add( splats, 'splatScale', 0.5, 4, 0.01 ).name( 'splat scale' );
+					gui.add( splats, 'opacity', 0.1, 1, 0.01 );
+					gui.add( splats, 'xrSplatCount', 32768, 262144, 32768 ).name( 'XR splat count' );
+
+				} );
+
+				renderer.xr.addEventListener( 'sessionstart', onSessionStart );
+				renderer.xr.addEventListener( 'sessionend', onSessionEnd );
+				window.addEventListener( 'resize', onWindowResize );
+				renderer.setAnimationLoop( animate );
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+			function onSessionStart() {
+
+				desktopCameraState = {
+					position: camera.position.clone(),
+					quaternion: camera.quaternion.clone(),
+					up: camera.up.clone(),
+					target: controls.target.clone()
+				};
+
+				controls.enabled = false;
+				scene.background = null;
+				setSplatPremultipliedAlpha( true );
+				cameraRig.position.copy( arRigPosition );
+				cameraRig.updateMatrixWorld( true );
+
+			}
+
+			function onSessionEnd() {
+
+				cameraRig.position.set( 0, 0, 0 );
+				scene.background = background;
+				camera.position.copy( desktopCameraState.position );
+				camera.quaternion.copy( desktopCameraState.quaternion );
+				camera.up.copy( desktopCameraState.up );
+				controls.target.copy( desktopCameraState.target );
+				controls.enabled = true;
+				controls.update();
+				setSplatPremultipliedAlpha( false );
+
+			}
+
+			function setSplatPremultipliedAlpha( value ) {
+
+				if ( splats === undefined || splats.material.premultipliedAlpha === value ) return;
+
+				splats.material.premultipliedAlpha = value;
+				splats.material.needsUpdate = true;
+
+			}
+
+			function animate( time ) {
+
+				if ( splats !== undefined ) splats.rotation.y = time * 0.001 * SPLAT_ROTATION_SPEED;
+
+				if ( renderer.xr.isPresenting === true ) {
+
+					renderer.xr.updateCamera( camera );
+
+					if ( splats !== undefined ) splats.update( renderer.xr.getCamera() );
+
+				} else {
+
+					controls.update();
+
+					if ( splats !== undefined ) splats.update( camera );
+
+				}
+
+				if ( renderer.xr.isPresenting === true ) {
+
+					renderPipeline.render( scene, camera );
+
+				} else {
+
+					renderer.render( scene, camera );
+
+				}
+
+			}
+
+		</script>
+	</body>
+</html>

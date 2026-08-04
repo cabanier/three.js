@@ -91,6 +91,7 @@ export * from './loaders/DRACOLoader.js';
 export * from './loaders/EXRLoader.js';
 export * from './loaders/FBXLoader.js';
 export * from './loaders/FontLoader.js';
+export * from './loaders/GaussianSplatLoader.js';
 export * from './loaders/GCodeLoader.js';
 export * from './loaders/GLTFLoader.js';
 export * from './loaders/HDRLoader.js';
@@ -160,6 +161,7 @@ export * from './modifiers/SimplifyModifier.js';
 export * from './modifiers/TessellateModifier.js';
 
 export * from './objects/GroundedSkybox.js';
+export * from './objects/GaussianSplatMesh.js';
 export * from './objects/Lensflare.js';
 export * from './objects/MarchingCubes.js';
 export * from './objects/Reflector.js';
