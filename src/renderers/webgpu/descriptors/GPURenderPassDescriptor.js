@@ -43,6 +43,14 @@ class GPURenderPassDescriptor {
 		this.timestampWrites = undefined;
 
 		/**
+		 * The number of views rendered by each draw command.
+		 *
+		 * @type {number}
+		 * @default 1
+		 */
+		this.viewCount = 1;
+
+		/**
 		 * The maximum number of draw calls that can be issued during the pass.
 		 *
 		 * @type {number}
@@ -63,6 +71,7 @@ class GPURenderPassDescriptor {
 		this.depthStencilAttachment = undefined;
 		this.occlusionQuerySet = undefined;
 		this.timestampWrites = undefined;
+		this.viewCount = 1;
 		this.maxDrawCount = 50000000;
 
 	}

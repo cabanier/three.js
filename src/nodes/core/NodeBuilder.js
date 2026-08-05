@@ -1157,6 +1157,18 @@ class NodeBuilder {
 	}
 
 	/**
+	 * Returns the multiview view index input variable as a native shader string.
+	 *
+	 * @abstract
+	 * @return {string} The view index shader string.
+	 */
+	getViewIndex() {
+
+		warn( 'Abstract function.' );
+
+	}
+
+	/**
 	 * Returns the drawIndex input variable as a native shader string.
 	 * Only relevant for WebGL and its `WEBGL_multi_draw` extension.
 	 *

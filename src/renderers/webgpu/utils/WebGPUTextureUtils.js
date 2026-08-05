@@ -351,21 +351,16 @@ class WebGPUTextureUtils {
 
 		textureData.format = format;
 
-		const { samples, primarySamples, isMSAA } = backend.utils.getTextureSampleData( texture );
+		const { samples, primarySamples } = backend.utils.getTextureSampleData( texture );
 		const renderTarget = texture.renderTarget;
 
-		// WebGPU multisampled 2D textures can only have a single array layer.
-		const useSeparateMSAATextures = samples > 1 && renderTarget !== null && depth > 1 && dimension === GPUTextureDimension.TwoD;
-		const supportsTransientAttachments = GPUTextureUsage.TRANSIENT_ATTACHMENT !== undefined;
-		// Layered rendering can resume after a framebuffer copy, so its attachments must support loading.
-		const useTransientAttachments = supportsTransientAttachments && useSeparateMSAATextures === false;
-		const useTransientDepthAttachment = texture.isDepthTexture === true &&
-			useTransientAttachments &&
-			renderTarget?.storeMultisampledDepthBuffer === false &&
-			( renderTarget.stencilBuffer === false || renderTarget.storeMultisampledStencilBuffer === false );
-		const useTransientColorAttachment = texture.isDepthTexture !== true &&
-			useTransientAttachments &&
-			renderTarget?.storeMultisampledColorBuffer === false;
+		const useSeparateMSAATextures = samples > 1 && renderTarget !== null && depth > 1 && dimension === GPUTextureDimension.TwoD && renderTarget.multiview !== true;
+		const discardMultisampledAttachment = texture.isDepthTexture === true
+			? renderTarget?.storeMultisampledDepthBuffer === false && ( renderTarget.stencilBuffer === false || renderTarget.storeMultisampledStencilBuffer === false )
+			: renderTarget?.storeMultisampledColorBuffer === false;
+		// Multiview passes can resume after a framebuffer copy, so their attachments must support loading.
+		const useTransientAttachment = GPUTextureUsage.TRANSIENT_ATTACHMENT !== undefined &&
+			useSeparateMSAATextures === false && renderTarget?.multiview !== true && discardMultisampledAttachment;
 
 		let usage = GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC;
 
@@ -383,7 +378,7 @@ class WebGPUTextureUtils {
 
 		// when the multisampled data are discarded, try to use a transient attachment if possible
 
-		if ( primarySamples > 1 && useTransientDepthAttachment ) {
+		if ( primarySamples > 1 && useTransientAttachment ) {
 
 			usage = GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TRANSIENT_ATTACHMENT;
 
@@ -429,7 +424,7 @@ class WebGPUTextureUtils {
 
 		}
 
-		if ( isMSAA || useSeparateMSAATextures ) {
+		if ( samples !== primarySamples || useSeparateMSAATextures ) {
 
 			const msaaTextureDescriptorGPU = Object.assign( {}, textureDescriptorGPU );
 
@@ -439,9 +434,13 @@ class WebGPUTextureUtils {
 
 			// when the multisampled data are discarded, try to use a transient attachment if possible
 
-			if ( useTransientDepthAttachment || useTransientColorAttachment ) {
+			if ( useTransientAttachment ) {
 
 				msaaTextureDescriptorGPU.usage = GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TRANSIENT_ATTACHMENT;
+
+			} else if ( renderTarget?.multiview === true && discardMultisampledAttachment ) {
+
+				msaaTextureDescriptorGPU.usage = GPUTextureUsage.RENDER_ATTACHMENT;
 
 			}
 

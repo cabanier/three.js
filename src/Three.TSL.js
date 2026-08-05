@@ -622,6 +622,7 @@ export const vertexColor = TSL.vertexColor;
 export const vertexIndex = TSL.vertexIndex;
 export const vertexStage = TSL.vertexStage;
 export const vibrance = TSL.vibrance;
+export const viewIndex = TSL.viewIndex;
 export const viewZToLogarithmicDepth = TSL.viewZToLogarithmicDepth;
 export const viewZToOrthographicDepth = TSL.viewZToOrthographicDepth;
 export const viewZToPerspectiveDepth = TSL.viewZToPerspectiveDepth;

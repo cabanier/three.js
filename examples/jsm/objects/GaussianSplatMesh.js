@@ -33,6 +33,7 @@ import {
 	uniform,
 	uniformArray,
 	varyingProperty,
+	viewIndex,
 	vec2,
 	vec3,
 	vec4
@@ -52,6 +53,8 @@ const SORT_POSITION_THRESHOLD = 0.0025;
 const KERNEL_2D_SIZE = 0.3;
 const MAX_SCREEN_SPACE_SPLAT_SIZE = 1024;
 const SPLAT_RADIUS = 3;
+
+const previousCameraIndex = /*@__PURE__*/ ( Fn( ( { camera } ) => camera.isMultiViewCamera ? viewIndex : cameraIndex ).once() )();
 
 function getCount( data ) {
 
@@ -202,8 +205,8 @@ class GaussianSplatVelocityNode extends TempNode {
 		this.previousModelWorldMatrix = uniform( new Matrix4() );
 		this.previousProjectionMatrices = [ new Matrix4(), new Matrix4() ];
 		this.previousCameraViewMatrices = [ new Matrix4(), new Matrix4() ];
-		this.previousProjectionMatrix = uniformArray( this.previousProjectionMatrices ).setGroup( renderGroup ).element( cameraIndex );
-		this.previousCameraViewMatrix = uniformArray( this.previousCameraViewMatrices ).setGroup( renderGroup ).element( cameraIndex );
+		this.previousProjectionMatrix = uniformArray( this.previousProjectionMatrices ).setGroup( renderGroup ).element( previousCameraIndex );
+		this.previousCameraViewMatrix = uniformArray( this.previousCameraViewMatrices ).setGroup( renderGroup ).element( previousCameraIndex );
 		this.updateType = NodeUpdateType.OBJECT;
 		this.updateAfterType = NodeUpdateType.OBJECT;
 

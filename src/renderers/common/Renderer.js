@@ -966,7 +966,7 @@ class Renderer {
 
 		if ( scene.matrixWorldAutoUpdate === true ) scene.updateMatrixWorld();
 
-		camera = this._updateCamera( camera, useXRCamera );
+		camera = this._updateCamera( camera, useXRCamera, renderTarget );
 
 		//
 
@@ -1511,7 +1511,7 @@ class Renderer {
 
 	_renderOutputLayers( quad, renderTarget ) {
 
-		const useMultiview = this.backend.isWebGLBackend === true && renderTarget.multiview === true;
+		const useMultiview = renderTarget.multiview === true;
 
 		if ( useMultiview || renderTarget.texture.isArrayTexture !== true || renderTarget.texture.image.depth <= 1 ) {
 
@@ -1746,7 +1746,7 @@ class Renderer {
 
 		if ( scene.matrixWorldAutoUpdate === true ) scene.updateMatrixWorld();
 
-		camera = this._updateCamera( camera, useXRCamera );
+		camera = this._updateCamera( camera, useXRCamera, renderTarget );
 
 		//
 
@@ -3597,9 +3597,10 @@ class Renderer {
 	 * @private
 	 * @param {Camera} camera - The camera to update.
 	 * @param {boolean} useXRCamera - Whether the XR camera should be used when presenting.
+	 * @param {?RenderTarget} renderTarget - The active render target.
 	 * @return {Camera} The returned camera might be different depending on whether XR is used or not.
 	 */
-	_updateCamera( camera, useXRCamera ) {
+	_updateCamera( camera, useXRCamera, renderTarget ) {
 
 		const xr = this.xr;
 
@@ -3677,6 +3678,7 @@ class Renderer {
 
 			if ( xr.cameraAutoUpdate === true ) xr.updateCamera( camera );
 			camera = xr.getCamera(); // use XR camera for rendering
+			camera.isMultiViewCamera = renderTarget?.multiview === true;
 
 		}
 

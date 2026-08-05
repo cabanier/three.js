@@ -942,6 +942,12 @@ class RenderObject {
 
 		}
 
+		if ( this.context.renderTarget?.multiview === true ) {
+
+			cacheKey = hash( cacheKey, 1 );
+
+		}
+
 		if ( this.object.receiveShadow ) {
 
 			cacheKey = hash( cacheKey, 1 );

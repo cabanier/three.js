@@ -144,6 +144,20 @@ class Textures extends DataMap {
 
 		}
 
+		if ( renderTargetData.multiview !== renderTarget.multiview ) {
+
+			textureNeedsUpdate = true;
+
+			if ( depthTexture && depthTexture.renderTarget === renderTarget ) {
+
+				depthTexture.needsUpdate = true;
+
+			}
+
+			renderTargetData.multiview = renderTarget.multiview;
+
+		}
+
 		//
 
 

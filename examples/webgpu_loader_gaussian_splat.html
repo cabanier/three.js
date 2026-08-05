@@ -69,7 +69,7 @@
 					antialias: true,
 					alpha: true,
 					outputBufferType: THREE.UnsignedByteType,
-					multiview: false
+					multiview: true
 				} );
 				renderer.setPixelRatio( window.devicePixelRatio );
 				renderer.setSize( window.innerWidth, window.innerHeight );
@@ -205,6 +205,8 @@
 				if ( renderer.xr.isPresenting === true ) {
 
 					renderPipeline.render( scene, camera );
+					renderer.resolveTimestampsAsync( THREE.TimestampQuery.COMPUTE );
+					renderer.resolveTimestampsAsync( THREE.TimestampQuery.RENDER );
 
 				} else {
 

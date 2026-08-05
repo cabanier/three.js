@@ -423,7 +423,7 @@ class XRManager extends EventDispatcher {
 
 		/**
 		 * Whether the usage of multiview is actually enabled. This flag only evaluates to `true`
-		 * if multiview has been requested by the application and the `OVR_multiview2` is available.
+		 * if multiview has been requested by the application and is supported by the active backend.
 		 *
 		 * @private
 		 * @type {boolean}
@@ -775,6 +775,14 @@ class XRManager extends EventDispatcher {
 	 */
 	async _initWebGPUSession( session ) {
 
+		const renderer = this._renderer;
+		const supportsViewInstancing = renderer.hasFeature( 'view-instancing' ) && renderer.backend.device.limits.maxViewInstanceCount >= 2;
+		const supportsMultisampledArrayTextures = renderer.samples <= 1 ||
+			renderer.backend.compatibilityMode === false ||
+			renderer.hasFeature( 'multisampled-array-textures' );
+
+		this._useMultiview = this._useMultiviewIfPossible && supportsViewInstancing && supportsMultisampledArrayTextures;
+
 		const webgpuBinding = this.getWebGPUBinding();
 		const useSpaceWarp = session.enabledFeatures.includes( 'space-warp' );
 		const projectionLayerInit = {
@@ -796,7 +804,7 @@ class XRManager extends EventDispatcher {
 			minFilter: LinearFilter,
 			magFilter: LinearFilter,
 			depthBuffer: true,
-			multiview: false,
+			multiview: this._useMultiview,
 			useArrayDepthTexture: true,
 			storeMultisampledColorBuffer: false,
 			storeMultisampledDepthBuffer: false,
@@ -817,6 +825,7 @@ class XRManager extends EventDispatcher {
 				format: RGBAFormat,
 				depthTexture,
 				depthBuffer: true,
+				multiview: this._useMultiview,
 				useArrayDepthTexture: true,
 				samples: 0
 			} );
@@ -828,13 +837,11 @@ class XRManager extends EventDispatcher {
 
 		}
 
-		if ( this._useMultiviewIfPossible === true ) {
+		if ( this._useMultiviewIfPossible === true && this._useMultiview === false ) {
 
-			warnOnce( 'THREE.XRManager: WebGPU XR does not support multiview yet. Disabling multiview for this XR session.' );
+			warnOnce( 'THREE.XRManager: WebGPU XR multisampled multiview requires view-instancing and multisampled array texture support. Disabling multiview for this XR session.' );
 
 		}
-
-		this._useMultiview = false;
 
 	}
 

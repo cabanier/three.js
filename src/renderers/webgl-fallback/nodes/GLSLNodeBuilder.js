@@ -1241,6 +1241,17 @@ ${ flowData.code }
 	}
 
 	/**
+	 * Returns the multiview view index builtin.
+	 *
+	 * @return {string} The view index.
+	 */
+	getViewIndex() {
+
+		return 'gl_ViewID_OVR';
+
+	}
+
+	/**
 	 * Returns a builtin representing the index of an invocation within its workgroup.
 	 *
 	 * @return {string} The invocation local index.

@@ -9,6 +9,7 @@ import { varying } from './VaryingNode.js';
  * - `vertexIndex`: The index of a vertex within a mesh.
  * - `instanceIndex`: The index of either a mesh instance or an invocation of a compute shader.
  * - `drawIndex`: The index of a draw call.
+ * - `viewIndex`: The index of a view within a multiview render pass.
  * - `invocationLocalIndex`: The index of a compute invocation within the scope of a workgroup load.
  * - `invocationSubgroupIndex`: The index of a compute invocation within the scope of a subgroup.
  * - `subgroupIndex`: The index of a compute invocation's subgroup within its workgroup.
@@ -26,7 +27,7 @@ class IndexNode extends Node {
 	/**
 	 * Constructs a new index node.
 	 *
-	 * @param {('vertex'|'instance'|'subgroup'|'invocationLocal'|'invocationGlobal'|'invocationSubgroup'|'draw')} scope - The scope of the index node.
+	 * @param {('vertex'|'instance'|'subgroup'|'invocationLocal'|'invocationGlobal'|'invocationSubgroup'|'draw'|'view')} scope - The scope of the index node.
 	 */
 	constructor( scope ) {
 
@@ -69,6 +70,10 @@ class IndexNode extends Node {
 
 			propertyName = builder.getDrawIndex();
 
+		} else if ( scope === IndexNode.VIEW ) {
+
+			propertyName = builder.getViewIndex();
+
 		} else if ( scope === IndexNode.INVOCATION_LOCAL ) {
 
 			propertyName = builder.getInvocationLocalIndex();
@@ -89,7 +94,7 @@ class IndexNode extends Node {
 
 		let output;
 
-		if ( builder.shaderStage === 'vertex' || builder.shaderStage === 'compute' ) {
+		if ( builder.shaderStage === 'vertex' || builder.shaderStage === 'compute' || scope === IndexNode.VIEW ) {
 
 			output = propertyName;
 
@@ -113,6 +118,7 @@ IndexNode.SUBGROUP = 'subgroup';
 IndexNode.INVOCATION_LOCAL = 'invocationLocal';
 IndexNode.INVOCATION_SUBGROUP = 'invocationSubgroup';
 IndexNode.DRAW = 'draw';
+IndexNode.VIEW = 'view';
 
 export default IndexNode;
 
@@ -163,3 +169,11 @@ export const invocationLocalIndex = /*@__PURE__*/ nodeImmutable( IndexNode, Inde
  * @type {IndexNode}
  */
 export const drawIndex = /*@__PURE__*/ nodeImmutable( IndexNode, IndexNode.DRAW );
+
+/**
+ * TSL object that represents the index of a view within a multiview render pass.
+ *
+ * @tsl
+ * @type {IndexNode}
+ */
+export const viewIndex = /*@__PURE__*/ nodeImmutable( IndexNode, IndexNode.VIEW );

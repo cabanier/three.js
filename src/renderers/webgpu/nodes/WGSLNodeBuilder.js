@@ -1497,6 +1497,21 @@ class WGSLNodeBuilder extends NodeBuilder {
 	}
 
 	/**
+	 * Returns the multiview view index builtin.
+	 *
+	 * @return {string} The view index.
+	 */
+	getViewIndex() {
+
+		this.enableDirective( 'view_instancing', this.shaderStage );
+
+		const shaderStage = this.shaderStage === 'vertex' ? 'attribute' : this.shaderStage;
+
+		return this.getBuiltin( 'view_index', 'viewIndex', 'u32', shaderStage );
+
+	}
+
+	/**
 	 * Builds the given shader node.
 	 *
 	 * @param {ShaderNodeInternal} shaderNode - The shader node.
@@ -1751,6 +1766,16 @@ ${ flowData.code }
 	enableDualSourceBlending() {
 
 		this.enableDirective( 'dual_source_blending' );
+
+	}
+
+	/**
+	 * Enables view instancing.
+	 */
+	enableMultiview() {
+
+		this.enableDirective( 'view_instancing', 'vertex' );
+		this.enableDirective( 'view_instancing', 'fragment' );
 
 	}
 
@@ -2627,6 +2652,9 @@ fn main( ${shaderData.attributes} ) -> VaryingsStruct {
 	_getWGSLFragmentCode( shaderData ) {
 
 		return `${ this.getSignature() }
+// directives
+${shaderData.directives}
+
 // global
 ${ diagnostics }
 

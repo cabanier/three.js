@@ -4,8 +4,7 @@ import NodeBuilderState from './NodeBuilderState.js';
 import NodeMaterial from '../../../materials/nodes/NodeMaterial.js';
 import { cubeMapNode } from '../../../nodes/utils/CubeMapNode.js';
 import { NodeFrame, NodeUpdateType, StackTrace } from '../../../nodes/Nodes.js';
-import { renderGroup, cubeTexture, texture, fog, rangeFogFactor, densityFogFactor, reference, pmremTexture, screenUV, uniform } from '../../../nodes/TSL.js';
-import { builtin } from '../../../nodes/accessors/BuiltinNode.js';
+import { renderGroup, cubeTexture, texture, fog, rangeFogFactor, densityFogFactor, reference, pmremTexture, screenUV, uniform, viewIndex } from '../../../nodes/TSL.js';
 
 import { CubeUVReflectionMapping, EquirectangularReflectionMapping, EquirectangularRefractionMapping } from '../../../constants.js';
 import { hashArray } from '../../../nodes/core/NodeUtils.js';
@@ -178,7 +177,7 @@ class NodeManager extends DataMap {
 		nodeBuilder.fogNode = this.getFogNode( renderObject.scene );
 		nodeBuilder.clippingContext = renderObject.clippingContext;
 
-		if ( this.renderer.getOutputRenderTarget() ? this.renderer.getOutputRenderTarget().multiview : false ) {
+		if ( renderObject.context.renderTarget?.multiview === true ) {
 
 			nodeBuilder.enableMultiview();
 
@@ -935,8 +934,9 @@ class NodeManager extends DataMap {
 	getOutputCacheKey() {
 
 		const renderer = this.renderer;
+		const useMultiview = renderer.getOutputRenderTarget()?.multiview === true;
 
-		return renderer.toneMapping + ',' + renderer.currentColorSpace + ',' + renderer.xr.isPresenting;
+		return renderer.toneMapping + ',' + renderer.currentColorSpace + ',' + renderer.xr.isPresenting + ',' + useMultiview;
 
 	}
 
@@ -955,9 +955,9 @@ class NodeManager extends DataMap {
 
 		if ( outputTarget.isArrayTexture ) {
 
-			if ( this.backend.isWebGLBackend ) {
+			if ( outputTarget.renderTarget?.multiview === true ) {
 
-				output = texture( outputTarget, screenUV ).depth( builtin( 'gl_ViewID_OVR' ) ).renderOutput( renderer.toneMapping, renderer.currentColorSpace );
+				output = texture( outputTarget, screenUV ).depth( viewIndex ).renderOutput( renderer.toneMapping, renderer.currentColorSpace );
 
 			} else {
 

@@ -242,9 +242,17 @@ class WebGPUBackend extends Backend {
 
 			}
 
+			const requiredLimits = { ...parameters.requiredLimits };
+
+			if ( parameters.multiview === true && supportedFeatures.includes( GPUFeatureName.ViewInstancing ) ) {
+
+				requiredLimits.maxViewInstanceCount = Math.max( requiredLimits.maxViewInstanceCount || 0, 2 );
+
+			}
+
 			const deviceDescriptor = {
 				requiredFeatures: supportedFeatures,
-				requiredLimits: parameters.requiredLimits
+				requiredLimits
 			};
 
 			device = await adapter.requestDevice( deviceDescriptor );
@@ -516,6 +524,8 @@ class WebGPUBackend extends Backend {
 	 */
 	_isRenderCameraDepthArray( renderContext ) {
 
+		if ( renderContext.renderTarget?.multiview === true ) return false;
+
 		const camera = renderContext.camera;
 
 		return renderContext.depthTexture && renderContext.depthTexture.isArrayTexture === true && camera !== null && camera.isArrayCamera === true;
@@ -553,10 +563,10 @@ class WebGPUBackend extends Backend {
 	 * @private
 	 * @param {RenderContext} renderContext - The render context.
 	 * @param {Object} textureData - The backend data for the external texture.
-	 * @param {number} count - The number of textures to create.
-	 * @return {?Array<GPUTexture>} The multisampled textures.
+	 * @param {number} viewCount - The number of views to allocate.
+	 * @return {?Array<GPUTexture>} The multisampled textures. Multiview uses one layered texture.
 	 */
-	_getExternalMSAATextures( renderContext, textureData, count ) {
+	_getExternalMSAATextures( renderContext, textureData, viewCount ) {
 
 		const samples = this.utils.getSampleCount( renderContext.sampleCount );
 
@@ -575,16 +585,19 @@ class WebGPUBackend extends Backend {
 		}
 
 		const renderTarget = renderContext.renderTarget;
+		const useMultiview = renderTarget.multiview === true;
 		const width = renderTarget.width;
 		const height = renderTarget.height;
 		const format = textureData.format;
+		const textureCount = useMultiview ? 1 : viewCount;
 
 		if ( textureData.msaaTextures === undefined ||
-			textureData.msaaTextures.length !== count ||
+			textureData.msaaTextures.length !== textureCount ||
 			textureData.msaaWidth !== width ||
 			textureData.msaaHeight !== height ||
 			textureData.msaaSamples !== samples ||
-			textureData.msaaFormat !== format ) {
+			textureData.msaaFormat !== format ||
+			textureData.msaaMultiview !== useMultiview ) {
 
 			if ( textureData.msaaTextures !== undefined ) {
 
@@ -594,6 +607,7 @@ class WebGPUBackend extends Backend {
 
 			_textureDescriptor.size.width = width;
 			_textureDescriptor.size.height = height;
+			_textureDescriptor.size.depthOrArrayLayers = useMultiview ? viewCount : 1;
 			_textureDescriptor.sampleCount = samples;
 			_textureDescriptor.format = format;
 			// Layered rendering can resume after a framebuffer copy,
@@ -602,9 +616,9 @@ class WebGPUBackend extends Backend {
 
 			textureData.msaaTextures = [];
 
-			for ( let i = 0; i < count; i ++ ) {
+			for ( let i = 0; i < textureCount; i ++ ) {
 
-				_textureDescriptor.label = renderTarget.texture.name + '-msaa-' + i;
+				_textureDescriptor.label = renderTarget.texture.name + ( useMultiview ? '-msaa' : '-msaa-' + i );
 				textureData.msaaTextures.push( this.device.createTexture( _textureDescriptor ) );
 
 			}
@@ -615,6 +629,7 @@ class WebGPUBackend extends Backend {
 			textureData.msaaHeight = height;
 			textureData.msaaSamples = samples;
 			textureData.msaaFormat = format;
+			textureData.msaaMultiview = useMultiview;
 
 		}
 
@@ -635,10 +650,27 @@ class WebGPUBackend extends Backend {
 		const textureViews = [];
 		const camera = renderContext.camera;
 		const viewDescriptors = textureData.xrViewDescriptors;
-		const viewCount = Math.max( viewDescriptors?.length || 0, renderContext.activeCubeFace + 1, 1 );
+		const useMultiview = renderContext.renderTarget.multiview === true;
+		const viewCount = useMultiview ? camera?.cameras?.length || renderContext.renderTarget.depth : Math.max( viewDescriptors?.length || 0, renderContext.activeCubeFace + 1, 1 );
 		const msaaTextures = this._getExternalMSAATextures( renderContext, textureData, viewCount );
 
-		if ( viewDescriptors && camera !== null && camera.isArrayCamera === true ) {
+		if ( useMultiview ) {
+
+			const viewDescriptor = {
+				...( viewDescriptors?.[ 0 ] || {} ),
+				dimension: GPUTextureViewDimension.TwoDArray,
+				arrayLayerCount: viewCount
+			};
+
+			const textureView = textureData.texture.createView( viewDescriptor );
+
+			textureViews.push( {
+				view: msaaTextures !== null ? msaaTextures[ 0 ].createView( viewDescriptor ) : textureView,
+				resolveTarget: msaaTextures !== null && renderContext.renderTarget.resolveColorBuffer === true ? textureView : undefined,
+				depthSlice: undefined
+			} );
+
+		} else if ( viewDescriptors && camera !== null && camera.isArrayCamera === true ) {
 
 			for ( let i = 0; i < viewDescriptors.length; i ++ ) {
 
@@ -686,6 +718,8 @@ class WebGPUBackend extends Backend {
 		const renderTarget = renderContext.renderTarget;
 		const renderTargetData = this.get( renderTarget );
 		const hasExternalTexture = this._hasExternalTexture( renderContext );
+		const useMultiview = renderTarget.multiview === true;
+		const viewCount = useMultiview ? renderContext.camera?.cameras?.length || renderTarget.depth : 1;
 
 		let descriptors = renderTargetData.descriptors;
 
@@ -693,6 +727,8 @@ class WebGPUBackend extends Backend {
 			renderTargetData.width !== renderTarget.width ||
 			renderTargetData.height !== renderTarget.height ||
 			renderTargetData.samples !== renderTarget.samples ||
+			renderTargetData.depth !== renderTarget.depth ||
+			renderTargetData.multiview !== useMultiview ||
 			hasExternalTexture
 		) {
 
@@ -764,6 +800,13 @@ class WebGPUBackend extends Backend {
 
 						_viewDescriptor.dimension = GPUTextureViewDimension.TwoDArray;
 
+						if ( useMultiview ) {
+
+							_viewDescriptor.baseArrayLayer = 0;
+							_viewDescriptor.arrayLayerCount = textures[ i ].image.depth;
+
+						}
+
 					}
 
 				}
@@ -776,7 +819,7 @@ class WebGPUBackend extends Backend {
 
 					if ( textureData.msaaTexture !== undefined ) {
 
-						view = textureData.msaaTexture.createView();
+						view = textureData.msaaTexture.createView( useMultiview ? _viewDescriptor : undefined );
 						resolveTarget = renderTarget.resolveColorBuffer === true ? textureView : undefined;
 
 					} else if ( textureData.msaaTextures !== undefined ) {
@@ -826,7 +869,13 @@ class WebGPUBackend extends Backend {
 
 				const depthTextureData = this.get( renderContext.depthTexture );
 
-				if ( renderContext.depthTexture.isArrayTexture || renderContext.depthTexture.isCubeTexture ) {
+				if ( useMultiview && renderContext.depthTexture.isArrayTexture ) {
+
+					_viewDescriptor.dimension = GPUTextureViewDimension.TwoDArray;
+					_viewDescriptor.arrayLayerCount = viewCount;
+					_viewDescriptor.baseArrayLayer = 0;
+
+				} else if ( renderContext.depthTexture.isArrayTexture || renderContext.depthTexture.isCubeTexture ) {
 
 					_viewDescriptor.dimension = GPUTextureViewDimension.TwoD;
 					_viewDescriptor.arrayLayerCount = 1;
@@ -835,8 +884,8 @@ class WebGPUBackend extends Backend {
 				}
 
 				const depthStencilAttachment = new GPURenderPassDepthStencilAttachment();
-				const msaaDepthTexture = depthTextureData.msaaTextures?.[ renderContext.activeCubeFace ];
-				depthStencilAttachment.view = msaaDepthTexture !== undefined ? msaaDepthTexture.createView() : depthTextureData.texture.createView( _viewDescriptor );
+				const msaaDepthTexture = useMultiview ? depthTextureData.msaaTexture : depthTextureData.msaaTextures?.[ renderContext.activeCubeFace ];
+				depthStencilAttachment.view = msaaDepthTexture !== undefined ? msaaDepthTexture.createView( _viewDescriptor ) : depthTextureData.texture.createView( _viewDescriptor );
 				descriptorBase.depthStencilAttachment = depthStencilAttachment;
 
 				_viewDescriptor.reset();
@@ -848,6 +897,8 @@ class WebGPUBackend extends Backend {
 			renderTargetData.width = renderTarget.width;
 			renderTargetData.height = renderTarget.height;
 			renderTargetData.samples = renderTarget.samples;
+			renderTargetData.depth = renderTarget.depth;
+			renderTargetData.multiview = useMultiview;
 			renderTargetData.activeMipmapLevel = renderContext.activeMipmapLevel;
 			renderTargetData.activeCubeFace = renderContext.activeCubeFace;
 
@@ -856,6 +907,12 @@ class WebGPUBackend extends Backend {
 		const descriptor = descriptorBase.descriptor;
 
 		descriptor.reset();
+
+		if ( useMultiview ) {
+
+			descriptor.viewCount = viewCount;
+
+		}
 
 		// Apply dynamic properties to cached attachments
 		for ( let i = 0; i < descriptorBase.colorAttachments.length; i ++ ) {
@@ -2244,7 +2301,7 @@ class WebGPUBackend extends Backend {
 
 		const vertexBuffers = renderObject.getVertexBuffers();
 
-		if ( renderObject.camera.isArrayCamera && renderObject.camera.cameras.length > 0 ) {
+		if ( renderObject.camera.isArrayCamera && renderObject.camera.cameras.length > 0 && renderObject.camera.isMultiViewCamera === false ) {
 
 			const cameraData = this.get( renderObject.camera );
 			const cameras = renderObject.camera.cameras;
